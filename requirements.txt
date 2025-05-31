@@ -1,0 +1,13 @@
+flask
+flask-socketio
+chatterbox-tts
+torch
+torchaudio
+librosa
+noisereduce
+nltk
+numpy
+webrtcvad
+werkzeug
+scipy
+peft

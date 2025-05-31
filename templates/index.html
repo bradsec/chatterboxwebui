@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Chatterbox TTS Web UI" />
+    <meta name="author" content="BRADSEC" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#202020" />
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+    <title>Chatterbox Web UI</title>
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+      <div class="branding"><a href="https://github.com/bradsec/chatterboxwebui">Chatterbox <span>Web UI</span></a></div>
+      <div id="theme-switcher">
+        <svg id="sun-icon" class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <circle class="sun" cx="12" cy="12" r="6" fill="currentColor" />
+          <g class="sun-beams" stroke="currentColor">
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </g>
+        </svg>
+        
+        <svg id="moon-icon" class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <mask id="moon-mask" class="moon">
+            <rect x="0" y="0" width="100%" height="100%" fill="currentColor" />
+            <circle cx="12" cy="10" r="6" fill="white" />
+          </mask>
+          <circle class="moon" cx="12" cy="12" r="6" fill="currentColor" />
+        </svg>  
+      </div>
+    </header>
+      <main>
+        <form id="generator-form">
+          <textarea name="text-input" id="text-input" rows="10" cols="50" placeholder="Enter your text here (max 10,000 characters)..."></textarea>
+          
+          <div class="file-upload-container">
+            <label for="audio-prompt" class="file-upload-label">
+              <span class="file-upload-text">Choose Reference Audio (Optional)</span>
+              <input type="file" id="audio-prompt" name="audio-prompt" accept=".wav,.mp3,.flac,.opus" />
+            </label>
+            <span class="file-name" id="file-name-display">No file selected</span>
+            <button type="button" id="clear-audio-button" class="clear-audio-button hide">Clear Audio</button>
+          </div>
+          <span class="more-info"><p class="small"><strong>Reference Audio:</strong> Upload an audio file (WAV, MP3, FLAC, OPUS) to clone the voice characteristics. The file should be clear speech, ideally 3-10 seconds long. If no file is provided, Chatterbox will use its default voice.</p></span><span class="more-info-link">About Reference Audio</span>
+
+          <div class="slider-group">
+            <div class="slider-container">
+              <label for="exaggeration">Exaggeration (default 0.5): <span id="exaggeration-value">0.50</span></label>
+              <input type="range" id="exaggeration" name="exaggeration" min="0.25" max="2.00" step="0.05" value="0.50" class="styled-slider">
+            </div>
+            <div class="slider-container">
+              <label for="temperature">Temperature (default 0.8): <span id="temperature-value">0.80</span></label>
+              <input type="range" id="temperature" name="temperature" min="0.05" max="5.00" step="0.05" value="0.80" class="styled-slider">
+            </div>
+          </div>
+          <span class="more-info"><p class="small"><strong>Exaggeration:</strong> Controls the emotional intensity and expressiveness of the generated speech. Lower values (0.25-0.5) produce more neutral, conversational speech. Higher values (0.7-2.0) create more dramatic, expressive speech but may become unstable at extreme values.</p><p class="small"><strong>Temperature:</strong> Controls the randomness and creativity in the speech generation. Lower values (0.1-0.5) produce more consistent, predictable speech. Higher values (0.8-2.0) introduce more variation and creativity but may reduce quality.</p></span><span class="more-info-link">Exaggeration and Temperature</span>
+          
+          <div class="slider-container">
+            <label for="cfg-weight">CFG Weight / Pace (default 0.5): <span id="cfg-weight-value">0.50</span></label>
+            <input type="range" id="cfg-weight" name="cfg-weight" min="0.00" max="1.00" step="0.05" value="0.50" class="styled-slider">
+          </div>
+          <span class="more-info"><p class="small"><strong>CFG Weight (Pace Control):</strong> Controls the pacing and adherence to the prompt. Lower values (0.0-0.3) result in faster, more relaxed speech - ideal for expressive or dramatic content. Higher values (0.6-1.0) produce slower, more deliberate speech that follows the prompt more closely. For fast-speaking reference voices, lower CFG weights work better.</p></span><span class="more-info-link">CFG Weight / Pace</span>
+
+          <div class="slider-container">
+            <label for="chunk-size">Chunk Size (default 130): <span id="chunk-size-value">300</span> characters</label>
+            <input type="range" id="chunk-size" name="chunk-size" min="50" max="300" step="10" value="300" class="styled-slider">
+          </div>
+          <span class="more-info"><p class="small"><strong>Chunk Size:</strong> Controls how much text is processed in each TTS generation call. Larger chunks (250-300) produce more natural speech flow and fewer processing calls, but may be less stable with complex text. Smaller chunks (50-150) are more reliable for difficult text but may sound more fragmented. Chatterbox can handle up to 300 characters per chunk.</p></span><span class="more-info-link">Chunk Size</span>
+
+          <div class="select-container">
+            <select name="seed" id="seed">
+              <option value="0" selected>Random Seed</option>
+              <option value="1">Seed 1</option>
+              <option value="42">Seed 42</option>
+              <option value="123">Seed 123</option>
+              <option value="777">Seed 777</option>
+              <option value="1234">Seed 1234</option>
+              <option value="9999">Seed 9999</option>
+              <option value="custom">Custom Seed...</option>
+            </select>
+          </div>
+          <div id="custom-seed-container" class="hide">
+            <input type="number" id="custom-seed-input" placeholder="Enter custom seed (0-999999)" min="0" max="999999" />
+          </div>
+          <span class="more-info"><p class="small"><strong>Random Seed:</strong> Controls the randomness of generation for reproducible results. Use 0 for random output each time, or set a specific number to get identical results with the same settings. Useful for comparing different parameter changes or recreating exact outputs. The same seed with identical settings will produce the same audio output.</p></span><span class="more-info-link">Random Seed</span>
+
+          <div class="select-group">
+          <div class="select-container">
+            <select name="speed" id="speed">
+              <option value="0.1">Speed 0.1x</option>
+              <option value="0.25">Speed 0.25x</option>
+              <option value="0.5">Speed 0.5x</option>
+              <option value="0.75">Speed 0.75x</option>
+              <option value="0.9">Speed 0.9x</option>
+              <option value="1.0" selected>Speed 1.0x (Normal)</option>
+              <option value="1.1">Speed 1.1x</option>
+              <option value="1.25">Speed 1.25x</option>
+              <option value="1.5">Speed 1.5x</option>
+              <option value="1.75">Speed 1.75x</option>
+              <option value="2.0">Speed 2.0x</option>
+            </select>
+          </div>   
+          <div class="select-container">
+            <select name="pitch" id="pitch">
+              <option value="-12">Pitch -12</option>
+              <option value="-10">Pitch -10</option>
+              <option value="-8">Pitch -8</option>
+              <option value="-6">Pitch -6</option>
+              <option value="-4">Pitch -4</option>
+              <option value="-2">Pitch -2</option>
+              <option value="0" selected>Pitch 0 (Normal)</option>
+              <option value="2">Pitch +2</option>
+              <option value="4">Pitch +4</option>
+              <option value="6">Pitch +6</option>
+              <option value="8">Pitch +8</option>
+              <option value="10">Pitch +10</option>
+              <option value="12">Pitch +12</option>
+            </select>
+          </div>
+        </div>
+          <span class="more-info"><p class="small"><strong>Speed and Pitch Adjustment:</strong> These are post-processing effects applied after Chatterbox generates the audio. Speed changes playback rate without affecting pitch. Pitch shifts the audio up or down in semitones. Note that extreme values may introduce artifacts like echo or reverb. For best results, use moderate adjustments and consider post-processing with AI audio enhancement tools.</p></span><span class="more-info-link">Speed and Pitch</span>
+          
+          <div class="toggle-group">
+            <div class="toggle-item">
+                <label for="reduce-noise">Reduce Noise
+                    <div class="switch">
+                        <input type="checkbox" id="reduce-noise" name="reduce-noise">
+                        <span class="slider round"></span>
+                    </div>
+                </label>
+            </div>
+            <div class="toggle-item">
+                <label for="remove-silence">Remove Silence
+                    <div class="switch">
+                        <input type="checkbox" id="remove-silence" name="remove-silence">
+                        <span class="slider round"></span>
+                    </div>
+                </label>
+            </div>
+        </div>               
+          <span class="more-info"><p class="small"><strong>Noise Reduction:</strong> Applies post-processing to reduce background noise in the generated audio. This uses the noisereduce library but may not be as effective as dedicated AI audio enhancement tools.</p><p class="small"><strong>Remove Silence:</strong> Uses voice activity detection to remove extended silent periods from the generated audio. This may help with unusually long pauses but could potentially remove intentional pauses. The audio is temporarily resampled to 16kHz for processing.</p></span><span class="more-info-link">Audio Post-Processing</span>
+          
+          <div class="button-group">
+            <button id="generate-button" type="submit">Generate</button>
+            <button id="reset-button" type="button">Reset to Defaults</button>
+          </div>
+        </form>
+        
+        <div class="progress-container hide">
+          <div class="progress-bar">
+              <svg viewbox="0 0 160 160" width="160" height="160">
+                  <circle cx="80" cy="80" r="70"></circle>
+                  <circle id="progress" cx="80" cy="80" r="70"></circle>
+                  <circle id="pulse" cx="80" cy="80" r="0"></circle>
+              </svg>
+              <div id="progress-text" class="progress-text">0%</div>
+          </div>              
+      </div>
+      <div id="progress-complete" class="progress-complete hide"></div>    
+      
+          <section id="audio-list" class="card-deck"></section>
+          <template id="audio-item-template">
+            <article class="card audio-item">
+                <div class="card-content">
+                            <audio class="audio-player" controls></audio>
+                            <p class="filename"></p>
+                            <p class="gen-time"></p>
+                            <p class="audio-prompt"></p>
+                            <p class="exaggeration"></p>
+                            <p class="temperature"></p>
+                            <p class="cfg-weight"></p>
+                            <p class="chunk-size"></p>
+                            <p class="speed"></p>
+                            <p class="pitch"></p>
+                            <p class="reduce-noise"></p>
+                            <p class="remove-silence"></p>
+                            <p class="seed"></p>
+                            <textarea rows="5" readonly class="text-input"></textarea>
+                </div>
+                <div class="button-section">
+                    <button class="download-button">Download</button>
+                    <button class="delete-button">Delete</button>
+                </div>
+            </article>
+        </template>
+                       
+  </main>
+    <footer>
+      <p><a href="https://github.com/bradsec/chatterboxwebui">Chatterbox Web UI</a> by BRADSEC</p>
+    </footer>
+  </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+  </body>
+</html>
