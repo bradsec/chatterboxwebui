@@ -79,22 +79,6 @@ Open your browser to `http://127.0.0.1:5000`
 - Controls pacing and prompt adherence
 - 0.5 (default): Balanced pacing
 
-### Tips for Best Results
-
-**General Use:**
-- Default settings work well for most content
-- For fast-speaking reference voices, lower CFG weight to ~0.3
-
-**Expressive/Dramatic Speech:**
-- Use lower CFG weight (~0.3) and higher exaggeration (~0.7+)
-- Higher exaggeration speeds up speech; lower CFG weight compensates
-
-**Voice Cloning:**
-- Use clear, high-quality reference audio
-- Avoid background noise or music
-- 3-10 second samples work best
-- Single speaker recordings preferred
-
 ## File Structure
 
 - `server.py` - Flask web server and SocketIO handling
@@ -105,24 +89,6 @@ Open your browser to `http://127.0.0.1:5000`
 - `static/css/styles.css` - Styling and responsive design
 - `static/output/` - Generated audio files
 - `static/json/data.json` - Generation history and metadata
-
-## Technical Details
-
-### Text Processing
-- Automatically chunks long text into segments under 300 characters
-- Preserves sentence structure and handles special formatting
-- Supports music note markers (♪) for song content
-
-### Audio Processing
-- Uses Chatterbox's native sample rate and format
-- Applies post-processing effects (speed, pitch, noise reduction)
-- Concatenates chunks with natural silence between segments
-- Maintains high audio quality throughout pipeline
-
-### Device Support
-- Automatic device detection (CUDA, MPS for Apple Silicon, CPU)
-- Optimized model loading for different hardware configurations
-- Memory-efficient processing for long text generation
 
 ## Requirements
 
