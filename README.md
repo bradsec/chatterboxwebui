@@ -18,22 +18,30 @@ This application is a Python Flask-based web UI designed to facilitate text-to-s
 
 https://github.com/user-attachments/assets/ad5d06b3-071c-432f-b73c-d338cca01279
 
-## Installation (example using MiniConda)
+## Installation (example using Miniconda)
+
+[Installing Miniconda - www.anaconda.com/docs/getting-started/miniconda/install](https://www.anaconda.com/docs/getting-started/miniconda/install)
 
 ```bash
-# Environment setup using MiniConda
+# Environment setup using Miniconda
 conda create -n chatterboxwebui python=3.12
 conda activate chatterboxwebui
+```
 
+```bash
 # Check NVidia CUDA version, you may need to change the install command line below
 # More information: https://pytorch.org/get-started/previous-versions/
 pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu126
+```
 
+```bash
 # Install chatterbox
 pip install chatterbox-tts
+```
 
+```bash
 # chatterboxwebui setup and requirements
-git clone https://github.com/bradsec/chatterboxwebui
+git clone https://github.com/bradsec/chatterboxwebui.git
 cd chatterboxwebui
 
 # NLTK (Natural Language Toolkit) is a popular open-source Python library for natural language processing (NLP). It provides a wide range of tools and resources for working with text data, including tasks like tokenization, stemming, parsing, and sentiment analysis.
