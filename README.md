@@ -14,6 +14,10 @@ This application is a Python Flask-based web UI designed to facilitate text-to-s
 
 ![Screenshot](screenshot.png)
 
+## Sample Audio
+
+https://github.com/user-attachments/assets/ad5d06b3-071c-432f-b73c-d338cca01279
+
 ## Installation (example using MiniConda)
 
 ```bash
