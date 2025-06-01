@@ -21,6 +21,7 @@ This application is a Python Flask-based web UI designed to facilitate text-to-s
 
 ### Male Voice Sample
 https://github.com/user-attachments/assets/2c29c48e-64e0-45b0-b07f-bdc13a9c1765
+
 ### Female Voice Sample
 https://github.com/user-attachments/assets/ec966e4b-b27f-48b1-aef1-aeab0daa6ed6
 
@@ -224,12 +225,6 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 - Ensure output directory has write permissions
 - Try reducing chunk size for complex text
 
-**NLTK Tokenization Warnings:**
-```bash
-# Run the NLTK fix command from installation section
-python -c "import nltk; nltk.download('punkt_tab')"
-```
-
 **Memory Issues:**
 - Reduce chunk size to 100-150 characters
 - Close other applications to free RAM
@@ -247,3 +242,6 @@ This project maintains the same MIT license as Chatterbox TTS. See the original 
 ## Acknowledgements
 
 - [Resemble AI](https://resemble.ai) for creating Chatterbox TTS
+
+## Disclaimer
+Don't use this to do bad things.
