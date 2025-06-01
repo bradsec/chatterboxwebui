@@ -335,12 +335,6 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 - Consider your system's memory when setting higher limits
 - Very long texts may require GPU acceleration for reasonable generation times
 
-**NLTK Tokenization Warnings:**
-```bash
-# Run the NLTK fix command from installation section
-python -c "import nltk; nltk.download('punkt_tab')"
-```
-
 **Memory Issues:**
 - Reduce chunk size to 100-150 characters
 - Close other applications to free RAM
