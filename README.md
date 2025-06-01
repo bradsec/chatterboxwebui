@@ -14,6 +14,8 @@ This application is a Python Flask-based web UI designed to facilitate text-to-s
 - **Enhanced Security**: Input validation, file type checking, and secure file handling
 - **Dark/Light Theme**: Toggle between themes with automatic state persistence
 - **Custom Pause Control**: Add custom pauses using `[[1.5]]` syntax for 1.5-second pauses
+- **Seed Tracking**: Automatic capture and display of random seeds for reproducible results
+- **Watermarked Audio**: All generated audio includes Resemble AI's Perth watermarking
 
 ![Screenshot](screenshot.png)
 
@@ -137,6 +139,13 @@ Normal pause here. [[0.5]] This was a short pause.
 - `Ctrl/Cmd + Enter`: Start generation
 - `Escape`: Focus back to text area
 
+#### Seed Tracking for Reproducible Results
+When using "Random Seed", the application captures and displays the actual seed used:
+- **Random generations show**: "Seed: Random (used: 847293)"
+- **Copy the number** (847293) to reproduce exact results
+- **Use Custom Seed** to enter a specific seed for consistent outputs
+- **Perfect for**: Experimenting with parameters while keeping voice consistent
+
 ### Parameter Guide
 
 **Exaggeration (0.25-2.0)**
@@ -144,6 +153,7 @@ Normal pause here. [[0.5]] This was a short pause.
 - `0.5` (default): Neutral, conversational speech
 - Higher values (0.7-2.0): More dramatic, expressive speech
 - Lower values (0.25-0.4): More subdued, calm speech
+- **Note**: Higher exaggeration tends to speed up speech
 
 **Temperature (0.05-5.0)**
 - Controls randomness and creativity in speech generation
@@ -154,14 +164,20 @@ Normal pause here. [[0.5]] This was a short pause.
 **CFG Weight / Pace (0.0-1.0)**
 - Controls pacing and adherence to the prompt
 - `0.5` (default): Balanced pacing
-- Lower values (0.0-0.3): Faster, more relaxed speech
+- Lower values (0.0-0.3): Faster, more relaxed speech (ideal for expressive/dramatic content)
 - Higher values (0.6-1.0): Slower, more deliberate speech
+- **Tip**: For fast-speaking reference voices, use lower CFG weights (~0.3)
 
 **Chunk Size (50-300)**
 - Characters processed per TTS generation call
 - `130` (default): Good balance of quality and reliability
 - Larger (250-300): More natural flow, fewer processing calls
 - Smaller (50-150): More reliable for complex text, may sound fragmented
+
+**Random Seed**
+- `Random`: Generates unique variations each time (captures actual seed for reproduction)
+- `Specific Number`: Produces identical results with same settings
+- **Use Case**: Set a specific seed to compare different parameter combinations
 
 **Speed & Pitch**
 - Post-processing effects applied after generation
@@ -171,6 +187,16 @@ Normal pause here. [[0.5]] This was a short pause.
 **Audio Post-Processing**
 - **Reduce Noise**: Applies noise reduction to generated audio
 - **Remove Silence**: Uses voice activity detection to remove long pauses
+
+### Usage Tips from Chatterbox Documentation
+
+**General Use (TTS and Voice Agents):**
+- Default settings (`exaggeration=0.5`, `cfg_weight=0.5`) work well for most prompts
+- For fast-speaking reference speakers, lower `cfg_weight` to around `0.3`
+
+**Expressive or Dramatic Speech:**
+- Use lower `cfg_weight` values (~0.3) with higher `exaggeration` (0.7+)
+- Higher exaggeration speeds up speech; lower CFG weight provides slower, more deliberate pacing
 
 ## Configuration
 
@@ -212,12 +238,20 @@ python server.py
 | **Short clips** | 5,000 chars | 30 seconds - 2 minutes | 4GB+ RAM |
 | **Default** | 10,000 chars | 1-5 minutes | 4GB+ RAM |
 | **Long articles** | 25,000 chars | 5-15 minutes | 8GB+ RAM |
+| **Book chapters** | 50,000 chars | 15-45 minutes | 8GB+ RAM, GPU recommended |
+| **Large documents** | 100,000+ chars | 45+ minutes | 16GB+ RAM, GPU recommended |
 
 **Performance considerations for higher limits:**
 - Longer texts require more memory and processing time
 - GPU acceleration becomes more beneficial for larger texts
 - Consider your system's RAM and processing capabilities
 - Generation time scales roughly linearly with text length
+
+### Audio Output
+- **Format**: WAV files at Chatterbox's native sample rate
+- **Quality**: 16-bit PCM audio
+- **Watermarking**: All outputs include imperceptible Perth watermarks
+- **Processing**: Optional noise reduction and silence removal
 
 ### File Limits
 - Text input: Configurable (default 10,000 characters)
@@ -247,6 +281,37 @@ chatterboxwebui/
 │       └── data.json        # Generation history and metadata (auto-created)
 ```
 
+## About Chatterbox TTS
+
+This web UI is built around [Resemble AI's Chatterbox TTS](https://github.com/resemble-ai/chatterbox), a state-of-the-art open-source text-to-speech model with several key advantages:
+
+- **Zero-shot Voice Cloning**: High-quality voice cloning from short audio samples
+- **Emotion Exaggeration Control**: First open-source TTS with intensity control
+- **State-of-the-art Quality**: Benchmarked against and preferred over leading closed-source systems
+- **0.5B Llama Backbone**: Built on proven transformer architecture
+- **Ultra-stable Generation**: Alignment-informed inference for consistent results
+- **Trained on 0.5M Hours**: Extensive training data for robust performance
+- **Built-in Watermarking**: All outputs include Resemble's Perth watermarking for responsible AI
+
+## System Requirements
+
+### Minimum Requirements
+- **CPU**: Multi-core processor (Intel i5/AMD Ryzen 5 or better)
+- **RAM**: 4GB (8GB+ recommended)
+- **Storage**: 2GB free space for models and generated audio
+- **Python**: 3.10 or newer
+
+### Recommended Requirements
+- **CPU**: Intel i7/AMD Ryzen 7 or better
+- **RAM**: 8GB+ 
+- **GPU**: NVIDIA GPU with 4GB+ VRAM (for faster generation)
+- **Storage**: 5GB+ free space
+
+### GPU Acceleration
+- **NVIDIA**: Requires CUDA 11.8+ and compatible PyTorch installation
+- **Apple Silicon**: Automatic MPS acceleration on M1/M2/M3 Macs
+- **CPU Fallback**: Works on any system, but slower generation times
+
 ## Troubleshooting
 
 ### Common Issues
@@ -270,6 +335,12 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 - Consider your system's memory when setting higher limits
 - Very long texts may require GPU acceleration for reasonable generation times
 
+**NLTK Tokenization Warnings:**
+```bash
+# Run the NLTK fix command from installation section
+python -c "import nltk; nltk.download('punkt_tab')"
+```
+
 **Memory Issues:**
 - Reduce chunk size to 100-150 characters
 - Close other applications to free RAM
@@ -288,6 +359,37 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 - Disable noise reduction and silence removal
 - Use lower temperature values (0.5-0.7)
 
+**For Better Quality:**
+- Use smaller chunk sizes (100-150) for complex text
+- Enable noise reduction for cleaner output
+- Use higher quality reference audio (16kHz+, mono, clear speech)
+- For expressive speech: Use `exaggeration=0.7+` with `cfg_weight=0.3`
+- For fast speakers: Lower `cfg_weight` to ~0.3
+
+**Reproducing Results:**
+- Note the actual seed from "Random" generations: "Seed: Random (used: 847293)"
+- Copy the seed number (847293) to Custom Seed for exact reproduction
+- Keep all other parameters identical for consistent results
+
+**For Better Quality:**
+- Use smaller chunk sizes (100-150) for complex text
+- Enable noise reduction
+- Use higher quality reference audio (16kHz+, mono)
+- Experiment with exaggeration values
+
+### Logs and Debugging
+
+```bash
+# View detailed logs
+python server.py
+
+# Check model loading
+python -c "from connector import get_chatterbox_model; get_chatterbox_model()"
+
+# Test audio generation
+python -c "from connector import generate_voice; print(generate_voice('Hello world test'))"
+```
+
 ## License
 
 This project maintains the same MIT license as Chatterbox TTS. See the original [Chatterbox repository](https://github.com/resemble-ai/chatterbox) for details.
@@ -295,7 +397,8 @@ This project maintains the same MIT license as Chatterbox TTS. See the original 
 ## Acknowledgements
 
 - [Resemble AI](https://resemble.ai) for creating Chatterbox TTS
+- The open-source community for the various libraries used in this project
 
 ## Disclaimer
 
-Don't do bad things.
+Don't do bad things with this.
