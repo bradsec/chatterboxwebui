@@ -19,7 +19,10 @@ This application is a Python Flask-based web UI designed to facilitate text-to-s
 
 ## Sample Audio
 
-https://github.com/user-attachments/assets/ad5d06b3-071c-432f-b73c-d338cca01279
+### Male Voice Sample
+https://github.com/user-attachments/assets/2c29c48e-64e0-45b0-b07f-bdc13a9c1765
+### Female Voice Sample
+https://github.com/user-attachments/assets/ec966e4b-b27f-48b1-aef1-aeab0daa6ed6
 
 ## Installation
 
