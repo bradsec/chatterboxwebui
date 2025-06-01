@@ -311,6 +311,10 @@ def split_text_part(text_part: str, max_chunk_length: int, nltk_available: bool)
     else:
         sentences = simple_sentence_split(text_part)
     
+    # If the entire text is shorter than max_chunk_length, return it as one chunk
+    if len(text_part) <= max_chunk_length:
+        return [text_part.strip()]
+    
     # Then pack sentences into chunks
     chunks = []
     current_chunk = ""
@@ -320,19 +324,23 @@ def split_text_part(text_part: str, max_chunk_length: int, nltk_available: bool)
         if not sentence:
             continue
             
+        # Test if adding this sentence would exceed the limit
         test_chunk = current_chunk + (" " + sentence if current_chunk else sentence)
         
         if len(test_chunk) <= max_chunk_length:
             current_chunk = test_chunk
         else:
+            # Current chunk is full, save it and start a new one
             if current_chunk:
                 chunks.append(current_chunk.strip())
                 current_chunk = sentence
             else:
-                # Single sentence too long - split by commas, then words
+                # Single sentence is too long - need to split it further
                 if len(sentence) > max_chunk_length:
-                    comma_parts = [part.strip() for part in sentence.split(',')]
+                    # Try splitting by commas first
+                    comma_parts = sentence.split(',')
                     for j, part in enumerate(comma_parts):
+                        part = part.strip()
                         if j < len(comma_parts) - 1:
                             part += ","
                         
@@ -345,6 +353,7 @@ def split_text_part(text_part: str, max_chunk_length: int, nltk_available: bool)
                                 chunks.append(current_chunk.strip())
                                 current_chunk = part
                             else:
+                                # Part is still too long - split by words
                                 if len(part) > max_chunk_length:
                                     words = part.split()
                                     for word in words:
@@ -358,12 +367,23 @@ def split_text_part(text_part: str, max_chunk_length: int, nltk_available: bool)
                                 else:
                                     current_chunk = part
                 else:
+                    # Sentence fits within limit
                     current_chunk = sentence
     
-    if current_chunk:
+    # Don't forget the last chunk
+    if current_chunk and current_chunk.strip():
         chunks.append(current_chunk.strip())
     
-    return [chunk for chunk in chunks if chunk.strip()]
+    # Final validation - remove empty chunks and ensure no duplicates
+    final_chunks = []
+    seen_chunks = set()
+    for chunk in chunks:
+        chunk = chunk.strip()
+        if chunk and chunk not in seen_chunks:
+            final_chunks.append(chunk)
+            seen_chunks.add(chunk)
+    
+    return final_chunks
 
 def split_text_into_chunks(text_input: str, max_chunk_length: int = 300) -> Tuple[List[dict], List[Optional[float]]]:
     """
@@ -404,36 +424,38 @@ def split_text_into_chunks(text_input: str, max_chunk_length: int = 300) -> Tupl
     
     logger.info(f"Found {len(break_matches)} break tags")
     
-    # Step 2: Split text by break tags, keeping clean text segments
+    # Step 2: Process text based on whether break tags are present
     chunks = []
-    current_pos = 0
     
-    for break_match in break_matches:
-        # Extract text before this break tag
-        text_before = text_input[current_pos:break_match['start']].strip()
+    if break_matches:
+        # Process text with break tags
+        current_pos = 0
         
-        # Process the text segment if it's not empty
-        if text_before:
-            processed_chunks = process_text_segment(text_before, max_chunk_length, nltk_available)
+        for break_match in break_matches:
+            # Extract text before this break tag
+            text_before = text_input[current_pos:break_match['start']].strip()
+            
+            # Process the text segment if it's not empty
+            if text_before:
+                processed_chunks = process_text_segment(text_before, max_chunk_length, nltk_available)
+                chunks.extend(processed_chunks)
+            
+            # Add the pause chunk
+            chunks.append({
+                'type': 'pause',
+                'content': break_match['duration']
+            })
+            logger.info(f"Added pause chunk: {break_match['duration']}s")
+            
+            current_pos = break_match['end']
+        
+        # Process any remaining text after the last break tag
+        remaining_text = text_input[current_pos:].strip()
+        if remaining_text:
+            processed_chunks = process_text_segment(remaining_text, max_chunk_length, nltk_available)
             chunks.extend(processed_chunks)
-        
-        # Add the pause chunk
-        chunks.append({
-            'type': 'pause',
-            'content': break_match['duration']
-        })
-        logger.info(f"Added pause chunk: {break_match['duration']}s")
-        
-        current_pos = break_match['end']
-    
-    # Process any remaining text after the last break tag
-    remaining_text = text_input[current_pos:].strip()
-    if remaining_text:
-        processed_chunks = process_text_segment(remaining_text, max_chunk_length, nltk_available)
-        chunks.extend(processed_chunks)
-    
-    # If no break tags were found, process the entire text normally
-    if not break_matches:
+    else:
+        # No break tags found, process the entire text normally
         processed_chunks = process_text_segment(text_input, max_chunk_length, nltk_available)
         chunks.extend(processed_chunks)
     
@@ -489,13 +511,14 @@ def process_text_segment(text_segment: str, max_chunk_length: int, nltk_availabl
                     'content': '♪ ' + song_part.strip() + ' ♪'
                 })
     else:
-        # Regular text splitting
+        # Regular text splitting - this is where the fix is applied
         text_chunks = split_text_part(text_segment, max_chunk_length, nltk_available)
         for text_chunk in text_chunks:
-            chunks.append({
-                'type': 'text',
-                'content': text_chunk
-            })
+            if text_chunk.strip():  # Only add non-empty chunks
+                chunks.append({
+                    'type': 'text',
+                    'content': text_chunk.strip()
+                })
     
     return chunks
 
@@ -935,9 +958,6 @@ def generate_voice(text_input: str, audio_prompt_path: Optional[str] = None,
         parts_processed = 0
         audio_pieces = []
         sample_rate = model.sr
-        
-        # Track chunk boundaries for final cleanup
-        chunk_boundaries = []
 
         for i, chunk_dict in enumerate(chunks):
             parts_processed += 1
@@ -996,22 +1016,24 @@ def generate_voice(text_input: str, audio_prompt_path: Optional[str] = None,
                     cleaned_audio = detect_and_fix_audio_artifacts(audio_array, sample_rate, None)
                     
                     audio_pieces.append(cleaned_audio)
-                    
-                    # Track chunk boundary
-                    current_length = sum(len(piece) for piece in audio_pieces[:-1])
-                    chunk_boundaries.append(current_length)
 
-                    # Add natural pause after text chunks (except last one, and if next isn't a pause)
-                    if parts_processed != total_parts:
-                        next_chunk = chunks[i + 1] if i + 1 < len(chunks) else None
-                        # Only add natural pause if next chunk is also text (not a custom pause)
-                        if next_chunk and next_chunk['type'] == 'text':
-                            pause_duration = calculate_natural_pause(chunk_content, next_chunk['content'], sample_rate, None)
+                    # Add natural pauses between text chunks when appropriate
+                    # Only skip natural pause if the next chunk is a custom pause (break tag)
+                    if i + 1 < len(chunks):
+                        next_chunk = chunks[i + 1]
+                        # Add natural pause unless next chunk is a custom pause
+                        if next_chunk['type'] != 'pause':
+                            pause_duration = calculate_natural_pause(chunk_content, next_chunk.get('content'), sample_rate, None)
                             natural_pause = generate_natural_silence(pause_duration, sample_rate, 'natural')
                             audio_pieces.append(natural_pause)
                             
                             pause_ms = (pause_duration / sample_rate) * 1000
-                            logger.info(f"Added natural pause: {pause_ms:.0f}ms")
+                            logger.info(f"Added natural pause between text chunks: {pause_ms:.0f}ms")
+                        else:
+                            logger.info(f"Skipped natural pause - next chunk is custom pause ({next_chunk['content']}s)")
+                    else:
+                        # This is the last text chunk - no pause needed
+                        logger.info("Last text chunk - no pause added")
 
                     # Clean up GPU memory
                     if isinstance(wav_tensor, torch.Tensor):
