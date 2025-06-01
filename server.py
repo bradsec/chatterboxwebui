@@ -4,256 +4,356 @@ import os
 import json
 import time
 import uuid
+import logging
 from werkzeug.utils import secure_filename
+from werkzeug.exceptions import RequestEntityTooLarge
 from connector import generate_voice
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
-socketio = SocketIO(app, max_http_buffer_size=50 * 1024 * 1024)
-generation_task = None
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
+socketio = SocketIO(app, max_http_buffer_size=50 * 1024 * 1024, cors_allowed_origins="*")
 
 # Allowed audio file extensions
 ALLOWED_EXTENSIONS = {'wav', 'mp3', 'flac', 'opus', 'm4a', 'ogg'}
+UPLOAD_FOLDER = os.path.join('static', 'uploads')
+OUTPUT_FOLDER = os.path.join('static', 'output')
+JSON_FOLDER = os.path.join('static', 'json')
 
 def allowed_file(filename):
+    """Check if uploaded file has allowed extension"""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def validate_audio_file(file):
+    """Validate uploaded audio file"""
+    if not file or file.filename == '':
+        return False, 'No file selected'
+    
+    if not allowed_file(file.filename):
+        return False, f'Invalid file type. Allowed: {", ".join(ALLOWED_EXTENSIONS)}'
+    
+    # Check file size (additional check beyond Flask's MAX_CONTENT_LENGTH)
+    file.seek(0, 2)  # Seek to end
+    size = file.tell()
+    file.seek(0)  # Reset to beginning
+    
+    if size > 50 * 1024 * 1024:  # 50MB
+        return False, 'File too large (max 50MB)'
+    
+    return True, None
 
 def cleanup_reference_audio(filepath):
     """Clean up reference audio file after generation"""
     try:
         if filepath and os.path.exists(filepath):
             os.remove(filepath)
-            print(f"Cleaned up reference audio: {filepath}")
+            logger.info(f"Cleaned up reference audio: {filepath}")
     except Exception as e:
-        print(f"Error cleaning up reference audio {filepath}: {str(e)}")
+        logger.error(f"Error cleaning up reference audio {filepath}: {str(e)}")
 
-@app.route('/', methods=['GET', 'POST'])
+def ensure_directories():
+    """Ensure all required directories exist"""
+    directories = [OUTPUT_FOLDER, JSON_FOLDER, UPLOAD_FOLDER]
+    for directory in directories:
+        os.makedirs(directory, exist_ok=True)
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_file_too_large(e):
+    return jsonify({'error': 'File too large (max 50MB)'}), 413
+
+@app.errorhandler(500)
+def handle_internal_error(e):
+    logger.error(f"Internal server error: {str(e)}")
+    return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
 
 @app.route('/static/output/<path:filename>')
 def serve_static(filename):
-    return send_from_directory('static/output', filename)
+    """Serve generated audio files"""
+    # Sanitize filename to prevent directory traversal
+    filename = secure_filename(filename)
+    return send_from_directory(OUTPUT_FOLDER, filename)
 
 @app.route('/upload_audio', methods=['POST'])
 def upload_audio():
     """Handle audio file upload for voice reference"""
-    if 'audio_file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-    
-    file = request.files['audio_file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    if file and allowed_file(file.filename):
-        # Create uploads directory if it doesn't exist
-        upload_dir = os.path.join('static', 'uploads')
-        os.makedirs(upload_dir, exist_ok=True)
+    try:
+        if 'audio_file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        file = request.files['audio_file']
+        
+        # Validate file
+        is_valid, error_msg = validate_audio_file(file)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
         
         # Generate unique filename to avoid conflicts
         filename = secure_filename(file.filename)
         name, ext = os.path.splitext(filename)
         unique_filename = f"{name}_{uuid.uuid4().hex[:8]}{ext}"
-        filepath = os.path.join(upload_dir, unique_filename)
+        filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
         
-        try:
-            file.save(filepath)
-            return jsonify({
-                'success': True, 
-                'filename': unique_filename,
-                'filepath': filepath
-            })
-        except Exception as e:
-            return jsonify({'error': f'Failed to save file: {str(e)}'}), 500
-    else:
-        return jsonify({'error': 'Invalid file type. Allowed: wav, mp3, flac, opus, m4a, ogg'}), 400
+        # Save file
+        file.save(filepath)
+        logger.info(f"Uploaded reference audio: {unique_filename}")
+        
+        return jsonify({
+            'success': True, 
+            'filename': unique_filename,
+            'filepath': filepath
+        })
+        
+    except Exception as e:
+        logger.error(f"Error uploading file: {str(e)}")
+        return jsonify({'error': f'Failed to save file: {str(e)}'}), 500
 
 @app.route('/clear_reference_audio', methods=['POST'])
 def clear_reference_audio():
     """Clear/delete a specific reference audio file"""
-    data = request.get_json()
-    filename = data.get('filename')
-    
-    if not filename:
-        return jsonify({'error': 'No filename provided'}), 400
-    
-    filepath = os.path.join('static', 'uploads', filename)
-    
     try:
+        data = request.get_json()
+        if not data or 'filename' not in data:
+            return jsonify({'error': 'No filename provided'}), 400
+        
+        filename = secure_filename(data.get('filename'))
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        
         if os.path.exists(filepath):
             os.remove(filepath)
+            logger.info(f"Cleared reference audio: {filename}")
             return jsonify({'success': True, 'message': f'Reference audio {filename} cleared successfully'})
         else:
             return jsonify({'success': True, 'message': 'File was already removed'})
+            
     except Exception as e:
+        logger.error(f"Error clearing reference audio: {str(e)}")
         return jsonify({'error': f'Failed to clear reference audio: {str(e)}'}), 500
 
 @socketio.on('start_generation')
 def handle_start_generation(data):
-    text_input = data['text_input']
-    audio_prompt_filename = data.get('audio_prompt_path')  # This will be the uploaded filename
-    exaggeration = float(data.get('exaggeration', 0.5))
-    temperature = float(data.get('temperature', 0.8))
-    cfg_weight = float(data.get('cfg_weight', 0.5))
-    chunk_size = int(data.get('chunk_size', 300))
-    reduce_noise = data.get('reduce_noise', False)
-    remove_silence = data.get('remove_silence', False)
-    speed = float(data.get('speed', 1.0))
-    pitch = int(data.get('pitch', 0))
-    seed = int(data.get('seed', 0))
-    
-    if text_input.strip() == '':
-        emit('error', {'error': 'Text is empty.'})
-        return
-
-    # Check text length (Chatterbox has a practical limit)
-    if len(text_input) > 10000:  # Reasonable limit for chunking
-        emit('error', {'error': 'Text is too long. Please limit to 10,000 characters.'})
-        return
-
-    # Convert filename to full path if audio prompt is provided
-    audio_prompt_path = None
-    if audio_prompt_filename:
-        audio_prompt_path = os.path.join('static', 'uploads', audio_prompt_filename)
-        if not os.path.exists(audio_prompt_path):
-            emit('error', {'error': 'Reference audio file not found. Please re-upload.'})
+    """Handle TTS generation request"""
+    try:
+        # Validate input data
+        text_input = data.get('text_input', '').strip()
+        if not text_input:
+            emit('error', {'error': 'Text is empty.'})
             return
 
-    start_time = time.time()
-    filename = generate_voice(
-    text_input=text_input,
-    audio_prompt_path=audio_prompt_path,
-    exaggeration=exaggeration,
-    temperature=temperature,
-    cfg_weight=cfg_weight,
-    chunk_size=chunk_size,
-    speed=speed,
-    pitch=pitch,
-    reduce_noise=reduce_noise,
-    remove_silence=remove_silence,
-    seed=seed,
-    progress_callback=update_progress
-    )
-    end_time = time.time()
-    duration = round(end_time - start_time, 2)
-    print(f"Generation took {duration} seconds")
+        # Check text length
+        if len(text_input) > 10000:
+            emit('error', {'error': 'Text is too long. Please limit to 10,000 characters.'})
+            return
 
-    # Note: We don't automatically delete reference audio here anymore
-    # It will only be deleted when user clicks "Clear Audio" or "Reset to Defaults"
+        # Extract and validate parameters
+        audio_prompt_filename = data.get('audio_prompt_path')
+        
+        try:
+            exaggeration = float(data.get('exaggeration', 0.5))
+            temperature = float(data.get('temperature', 0.8))
+            cfg_weight = float(data.get('cfg_weight', 0.5))
+            chunk_size = int(data.get('chunk_size', 300))
+            speed = float(data.get('speed', 1.0))
+            pitch = int(data.get('pitch', 0))
+            seed = int(data.get('seed', 0))
+        except (ValueError, TypeError) as e:
+            emit('error', {'error': f'Invalid parameter values: {str(e)}'})
+            return
+        
+        # Validate parameter ranges
+        if not (0.25 <= exaggeration <= 2.0):
+            emit('error', {'error': 'Exaggeration must be between 0.25 and 2.0'})
+            return
+        if not (0.05 <= temperature <= 5.0):
+            emit('error', {'error': 'Temperature must be between 0.05 and 5.0'})
+            return
+        if not (0.0 <= cfg_weight <= 1.0):
+            emit('error', {'error': 'CFG Weight must be between 0.0 and 1.0'})
+            return
+        if not (50 <= chunk_size <= 300):
+            emit('error', {'error': 'Chunk size must be between 50 and 300'})
+            return
+        
+        reduce_noise = bool(data.get('reduce_noise', False))
+        remove_silence = bool(data.get('remove_silence', False))
 
-    if filename:
-        # Write data to JSON (store original filename, not path, for display)
-        write_to_json(text_input, filename, audio_prompt_filename, exaggeration, temperature, 
-                     cfg_weight, chunk_size, speed, pitch, reduce_noise, remove_silence, seed, duration)
+        # Validate audio prompt file if provided
+        audio_prompt_path = None
+        if audio_prompt_filename:
+            audio_prompt_path = os.path.join(UPLOAD_FOLDER, secure_filename(audio_prompt_filename))
+            if not os.path.exists(audio_prompt_path):
+                emit('error', {'error': 'Reference audio file not found. Please re-upload.'})
+                return
 
-        # Emit 'generation_complete' event with the filename
-        emit('generation_complete', {'filename': filename, 'generation_time': duration})
-    else:
-        emit('error', {'error': 'Audio generation failed. Please try again.'})
+        # Generate audio
+        start_time = time.time()
+        filename = generate_voice(
+            text_input=text_input,
+            audio_prompt_path=audio_prompt_path,
+            exaggeration=exaggeration,
+            temperature=temperature,
+            cfg_weight=cfg_weight,
+            chunk_size=chunk_size,
+            speed=speed,
+            pitch=pitch,
+            reduce_noise=reduce_noise,
+            remove_silence=remove_silence,
+            seed=seed,
+            progress_callback=update_progress
+        )
+        end_time = time.time()
+        duration = round(end_time - start_time, 2)
+        
+        logger.info(f"Generation completed in {duration} seconds")
+
+        if filename:
+            # Save generation data to JSON
+            write_to_json(text_input, filename, audio_prompt_filename, exaggeration, temperature, 
+                         cfg_weight, chunk_size, speed, pitch, reduce_noise, remove_silence, seed, duration)
+            
+            emit('generation_complete', {'filename': filename, 'generation_time': duration})
+        else:
+            emit('error', {'error': 'Audio generation failed. Please try again.'})
+            
+    except Exception as e:
+        logger.error(f"Error in generation: {str(e)}")
+        emit('error', {'error': f'Generation failed: {str(e)}'})
 
 def update_progress(current, total):
-    progress = current / total
-    emit('generation_progress', {'progress': progress}, broadcast=True)
+    """Update generation progress"""
+    try:
+        progress = current / total if total > 0 else 0
+        emit('generation_progress', {'progress': progress}, broadcast=False)
+    except Exception as e:
+        logger.error(f"Error updating progress: {str(e)}")
 
 @app.route('/static/output/<path:filename>', methods=['DELETE'])
 def delete_file(filename):
+    """Delete a generated audio file"""
     try:
-        file_path = os.path.join('static/output', filename)
+        filename = secure_filename(filename)
+        file_path = os.path.join(OUTPUT_FOLDER, filename)
+        
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+        
         os.remove(file_path)
-
-        # Remove data from JSON
         remove_from_json(filename)
+        logger.info(f"Deleted file: {filename}")
+        
         return jsonify({'message': 'File deleted successfully'})
-    except OSError as e:
-        return jsonify({'message': 'Error deleting file: ' + str(e)}), 500
+        
+    except Exception as e:
+        logger.error(f"Error deleting file {filename}: {str(e)}")
+        return jsonify({'error': f'Error deleting file: {str(e)}'}), 500
 
 def write_to_json(text_input, filename, audio_prompt_path, exaggeration, temperature, 
                  cfg_weight, chunk_size, speed, pitch, reduce_noise, remove_silence, seed, duration):
-    data = {}
-    json_file = os.path.join('static/json', 'data.json')
-    
-    # Ensure the directory exists
-    os.makedirs(os.path.dirname(json_file), exist_ok=True)
-    
+    """Write generation data to JSON file"""
     try:
+        json_file = os.path.join(JSON_FOLDER, 'data.json')
+        
         # Read existing data
-        with open(json_file, 'r') as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
+        data = {}
+        if os.path.exists(json_file):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                logger.warning(f"Error reading existing JSON data: {str(e)}")
+                data = {}
 
-    # Remove the .wav extension from the filename
-    file_id = os.path.splitext(filename)[0]
+        # Remove the .wav extension from the filename for the key
+        file_id = os.path.splitext(filename)[0]
 
-    # Append new data to the beginning of the JSON list
-    data = {file_id: {
-        'textInput': text_input,
-        'audioPromptPath': audio_prompt_path,
-        'exaggeration': exaggeration,
-        'temperature': temperature,
-        'cfgWeight': cfg_weight,
-        'chunkSize': chunk_size,
-        'speed': speed,
-        'pitch': pitch,
-        'reduceNoise': reduce_noise,
-        'removeSilence': remove_silence,
-        'seed': seed,
-        'outputFile': filename,
-        'generationTime': duration
-    }, **data}
+        # Add new data to the beginning
+        new_entry = {
+            'textInput': text_input,
+            'audioPromptPath': audio_prompt_path,
+            'exaggeration': exaggeration,
+            'temperature': temperature,
+            'cfgWeight': cfg_weight,
+            'chunkSize': chunk_size,
+            'speed': speed,
+            'pitch': pitch,
+            'reduceNoise': reduce_noise,
+            'removeSilence': remove_silence,
+            'seed': seed,
+            'outputFile': filename,
+            'generationTime': duration,
+            'timestamp': time.time()
+        }
+        
+        data = {file_id: new_entry, **data}
 
-    # Write the data back to the file with pretty formatting
-    with open(json_file, 'w') as f:
-        json.dump(data, f, indent=4)
+        # Write data back to file
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+            
+    except Exception as e:
+        logger.error(f"Error writing to JSON: {str(e)}")
 
 def remove_from_json(filename):
-    data = {}
-    json_file = os.path.join('static/json', 'data.json')
+    """Remove entry from JSON file"""
     try:
+        json_file = os.path.join(JSON_FOLDER, 'data.json')
+        
+        if not os.path.exists(json_file):
+            return
+        
         # Read existing data
-        with open(json_file, 'r') as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return
 
-    # Remove the .wav extension from the filename
-    file_id = os.path.splitext(filename)[0]
+        # Remove the entry
+        file_id = os.path.splitext(filename)[0]
+        if file_id in data:
+            del data[file_id]
 
-    # Remove the data entry for the given filename
-    if file_id in data:
-        del data[file_id]
-
-    # Check if data is empty after removal
-    if not data:
-        if os.path.exists(json_file):
+        # Write back to file or remove file if empty
+        if data:
+            with open(json_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+        else:
             os.remove(json_file)
-    else:
-        # If not, write the data back to the file with pretty formatting
-        with open(json_file, 'w') as f:
-            json.dump(data, f, indent=4)
+            
+    except Exception as e:
+        logger.error(f"Error removing from JSON: {str(e)}")
 
 def cleanup_old_uploads():
     """Clean up old upload files on startup"""
-    upload_dir = os.path.join('static', 'uploads')
-    if os.path.exists(upload_dir):
-        try:
-            for filename in os.listdir(upload_dir):
-                filepath = os.path.join(upload_dir, filename)
+    try:
+        if os.path.exists(UPLOAD_FOLDER):
+            for filename in os.listdir(UPLOAD_FOLDER):
+                filepath = os.path.join(UPLOAD_FOLDER, filename)
                 if os.path.isfile(filepath):
                     os.remove(filepath)
-            print("Cleaned up old upload files")
-        except Exception as e:
-            print(f"Error cleaning up old uploads: {e}")
+            logger.info("Cleaned up old upload files")
+    except Exception as e:
+        logger.error(f"Error cleaning up old uploads: {e}")
 
 if __name__ == '__main__':
     # Ensure output directories exist
-    os.makedirs('static/output', exist_ok=True)
-    os.makedirs('static/json', exist_ok=True)
-    os.makedirs('static/uploads', exist_ok=True)
+    ensure_directories()
     
     # Clean up any leftover upload files from previous sessions
     cleanup_old_uploads()
     
-    # Note will allow access from other devices on same network.
-    socketio.run(app, host='0.0.0.0', debug=True)
+    # Get host and port from environment variables for deployment flexibility
+    host = os.environ.get('HOST', '0.0.0.0')
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('DEBUG', 'True').lower() == 'true'
+    
+    logger.info(f"Starting Chatterbox Web UI on {host}:{port}")
+    socketio.run(app, host=host, port=port, debug=debug)

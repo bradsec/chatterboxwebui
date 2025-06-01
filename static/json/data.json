@@ -1,0 +1,50 @@
+{
+    "e8d19aff795a4338a3ee01bb8c00282f": {
+        "textInput": "Artificial intelligence is transforming the way we interact with machines, making communication more natural and intuitive. Text-to-speech technology, powered by AI, allows computers to convert written words into spoken language with increasing fluency and realism. This capability is essential for accessibility, virtual assistants, and interactive voice response systems.",
+        "audioPromptPath": "audio2_d6d0bf12.wav",
+        "exaggeration": 0.5,
+        "temperature": 0.8,
+        "cfgWeight": 0.5,
+        "chunkSize": 130,
+        "speed": 1.0,
+        "pitch": 0,
+        "reduceNoise": false,
+        "removeSilence": false,
+        "seed": 0,
+        "outputFile": "e8d19aff795a4338a3ee01bb8c00282f.wav",
+        "generationTime": 7.55,
+        "timestamp": 1748735551.6205947
+    },
+    "15298730dee44bf29387eda998e01469": {
+        "textInput": "Artificial intelligence is transforming the way we interact with machines, making communication more natural and intuitive. Text-to-speech technology, powered by AI, allows computers to convert written words into spoken language with increasing fluency and realism. This capability is essential for accessibility, virtual assistants, and interactive voice response systems.",
+        "audioPromptPath": "audio2_1aea05b1.wav",
+        "exaggeration": 0.5,
+        "temperature": 0.8,
+        "cfgWeight": 0.5,
+        "chunkSize": 130,
+        "speed": 1.0,
+        "pitch": 0,
+        "reduceNoise": false,
+        "removeSilence": false,
+        "seed": 0,
+        "outputFile": "15298730dee44bf29387eda998e01469.wav",
+        "generationTime": 7.65,
+        "timestamp": 1748735541.934418
+    },
+    "c9516e06fb3f48a89bf8b8f47bd3fd8b": {
+        "textInput": "Artificial intelligence is transforming the way we interact with machines, making communication more natural and intuitive. Text-to-speech technology, powered by AI, allows computers to convert written words into spoken language with increasing fluency and realism. This capability is essential for accessibility, virtual assistants, and interactive voice response systems.",
+        "audioPromptPath": "audio2_b01accf3.wav",
+        "exaggeration": 0.5,
+        "temperature": 0.8,
+        "cfgWeight": 0.5,
+        "chunkSize": 130,
+        "speed": 1.0,
+        "pitch": 0,
+        "reduceNoise": false,
+        "removeSilence": false,
+        "seed": 0,
+        "outputFile": "c9516e06fb3f48a89bf8b8f47bd3fd8b.wav",
+        "generationTime": 8.31,
+        "timestamp": 1748735512.8900476
+    }
+}

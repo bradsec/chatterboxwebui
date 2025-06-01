@@ -11,6 +11,9 @@ This application is a Python Flask-based web UI designed to facilitate text-to-s
 - **Post-processing**: Speed, pitch, noise reduction, and silence removal
 - **Real-time Progress**: Live progress updates during generation
 - **Audio Management**: Download, delete, and organize generated audio files
+- **Enhanced Security**: Input validation, file type checking, and secure file handling
+- **Dark/Light Theme**: Toggle between themes with automatic state persistence
+- **Custom Pause Control**: Add custom pauses using `[[1.5]]` syntax for 1.5-second pauses
 
 ![Screenshot](screenshot.png)
 
@@ -18,105 +21,221 @@ This application is a Python Flask-based web UI designed to facilitate text-to-s
 
 https://github.com/user-attachments/assets/ad5d06b3-071c-432f-b73c-d338cca01279
 
-## Installation (example using Miniconda)
+## Installation
+
+### Prerequisites
+- Python 3.10+ (Python 3.12 recommended)
+- CUDA-compatible GPU (optional, for faster generation)
+
+### Setup Instructions
+
+#### 1. Environment Setup (using Miniconda - Recommended)
 
 [Installing Miniconda - www.anaconda.com/docs/getting-started/miniconda/install](https://www.anaconda.com/docs/getting-started/miniconda/install)
 
 ```bash
-# Environment setup using Miniconda
+# Create and activate environment
 conda create -n chatterboxwebui python=3.12
 conda activate chatterboxwebui
 ```
 
-```bash
-# Check NVidia CUDA version, you may need to change the install command line below
-# More information: https://pytorch.org/get-started/previous-versions/
-pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu126
-```
+#### 2. Install PyTorch
 
 ```bash
-# Install chatterbox
+# For CUDA 12.6 (check your CUDA version first)
+pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu126
+
+# For CPU only (slower but works on any system)
+pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+
+# For macOS with Apple Silicon
+pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0
+```
+
+> **Note**: Check [PyTorch installation guide](https://pytorch.org/get-started/locally/) for the correct command for your system.
+
+#### 3. Install Chatterbox TTS
+
+```bash
 pip install chatterbox-tts
 ```
 
+#### 4. Clone and Setup Web UI
+
 ```bash
-# chatterboxwebui setup and requirements
+# Clone the repository
 git clone https://github.com/bradsec/chatterboxwebui.git
 cd chatterboxwebui
 
-# NLTK (Natural Language Toolkit) is a popular open-source Python library for natural language processing (NLP). It provides a wide range of tools and resources for working with text data, including tasks like tokenization, stemming, parsing, and sentiment analysis.
-python -c "import nltk; nltk.download('punkt')"
-
-# Install webui requirements
-pip install -r requirements
+# Install requirements
+pip install -r requirements.txt
 ```
 
-### Running the application
+#### 5. Fix NLTK Setup (Important!)
+
 ```bash
+# Download required NLTK data to prevent tokenization warnings
+python -c "
+import nltk
+import os
+nltk_data_dir = os.path.expanduser('~/nltk_data')
+os.makedirs(nltk_data_dir, exist_ok=True)
+try:
+    nltk.download('punkt_tab', download_dir=nltk_data_dir)
+    print('punkt_tab downloaded successfully')
+except:
+    try:
+        nltk.download('punkt', download_dir=nltk_data_dir)
+        print('punkt downloaded successfully')
+    except Exception as e:
+        print(f'Download failed: {e}')
+"
+```
+
+### Running the Application
+
+```bash
+# Start the web server
 python server.py
 ```
 
-### Access the web interface  
+### Access the Web Interface  
 Open your browser to `http://127.0.0.1:5000`
 
-## Usage
+> **Network Access**: The server binds to `0.0.0.0` by default, allowing access from other devices on your network at `http://YOUR_IP:5000`
+
+## Usage Guide
 
 ### Basic Text-to-Speech
-1. Enter your text in the text area
+1. Enter your text in the text area (max 10,000 characters)
 2. Adjust parameters as needed (defaults work well for most use cases)
 3. Click "Generate" to create audio
+4. Download or delete generated files from the audio list below
 
 ### Voice Cloning
-1. Upload a reference audio file (WAV, MP3, FLAC, or OPUS)
-2. Use clear speech samples, ideally 3-10 seconds long
-3. The generated speech will mimic the uploaded voice characteristics
+1. Click "Choose Reference Audio" and upload a clear speech sample
+2. Supported formats: WAV, MP3, FLAC, OPUS, M4A, OGG (max 50MB)
+3. Use 3-10 seconds of clear, single-speaker audio for best results
+4. The generated speech will mimic the uploaded voice characteristics
+
+### Advanced Features
+
+#### Custom Pauses
+Add custom pauses in your text using double brackets:
+```
+Hello there. [[2.0]] This pause was 2 seconds long.
+Normal pause here. [[0.5]] This was a short pause.
+```
+
+#### Keyboard Shortcuts
+- `Ctrl/Cmd + Enter`: Start generation
+- `Escape`: Focus back to text area
 
 ### Parameter Guide
 
 **Exaggeration (0.25-2.0)**
 - Controls emotional intensity and expressiveness
-- 0.5 (default): Neutral, conversational speech
-- Higher values: More dramatic, expressive speech
-- Lower values: More subdued, calm speech
+- `0.5` (default): Neutral, conversational speech
+- Higher values (0.7-2.0): More dramatic, expressive speech
+- Lower values (0.25-0.4): More subdued, calm speech
 
-**Temperature (0.1-2.0)**
-- Controls randomness and creativity
-- 0.8 (default): Good balance of quality and variation
+**Temperature (0.05-5.0)**
+- Controls randomness and creativity in speech generation
+- `0.8` (default): Good balance of quality and variation
+- Lower values (0.1-0.5): More consistent, predictable speech
+- Higher values (1.0-2.0): More creative but potentially less stable
 
-**CFG Weight (0.0-1.0)**
-- Controls pacing and prompt adherence
-- 0.5 (default): Balanced pacing
+**CFG Weight / Pace (0.0-1.0)**
+- Controls pacing and adherence to the prompt
+- `0.5` (default): Balanced pacing
+- Lower values (0.0-0.3): Faster, more relaxed speech
+- Higher values (0.6-1.0): Slower, more deliberate speech
+
+**Chunk Size (50-300)**
+- Characters processed per TTS generation call
+- `130` (default): Good balance of quality and reliability
+- Larger (250-300): More natural flow, fewer processing calls
+- Smaller (50-150): More reliable for complex text, may sound fragmented
+
+**Speed & Pitch**
+- Post-processing effects applied after generation
+- Speed: 0.1x to 2.0x playback rate (1.0x = normal)
+- Pitch: -12 to +12 semitones (0 = normal)
+
+**Audio Post-Processing**
+- **Reduce Noise**: Applies noise reduction to generated audio
+- **Remove Silence**: Uses voice activity detection to remove long pauses
+
+## Configuration
+
+### Environment Variables
+```bash
+# Server configuration
+HOST=0.0.0.0          # Server host (default: 0.0.0.0)
+PORT=5000             # Server port (default: 5000)
+DEBUG=False           # Debug mode (default: True)
+SECRET_KEY=your_key   # Flask secret key (auto-generated if not set)
+```
+
+### File Limits
+- Text input: 10,000 characters maximum
+- Audio uploads: 50MB maximum
+- Supported audio formats: WAV, MP3, FLAC, OPUS, M4A, OGG
 
 ## File Structure
 
-- `server.py` - Flask web server and SocketIO handling
-- `connector.py` - Chatterbox TTS integration and audio processing
-- `templates/index.html` - Main web interface
-- `static/js/main.js` - Frontend functionality and SocketIO client
-- `static/js/theme.js` - Dark/light theme switching
-- `static/css/styles.css` - Styling and responsive design
-- `static/output/` - Generated audio files
-- `static/json/data.json` - Generation history and metadata
-
-## Requirements
-
-- Python 3.12+
-- PyTorch with appropriate device support (CUDA/MPS/CPU)
-- Chatterbox TTS
-- Flask and Flask-SocketIO
-- Additional dependencies in requirements.txt
+```
+chatterboxwebui/
+├── server.py                 # Flask web server and SocketIO handling
+├── connector.py              # Chatterbox TTS integration and audio processing
+├── requirements.txt          # Python dependencies
+├── templates/
+│   └── index.html           # Main web interface template
+├── static/
+│   ├── css/
+│   │   └── styles.css       # Styling and responsive design
+│   ├── js/
+│   │   ├── main.js          # Frontend functionality and SocketIO client
+│   │   └── theme.js         # Dark/light theme switching
+│   ├── img/
+│   │   └── favicon.ico      # Website favicon
+│   ├── output/              # Generated audio files (auto-created)
+│   ├── uploads/             # Temporary reference audio files (auto-created)
+│   └── json/
+│       └── data.json        # Generation history and metadata (auto-created)
+```
 
 ## Troubleshooting
 
+### Common Issues
+
 **Model Loading Issues:**
-- Ensure sufficient disk space for model downloads
-- Check internet connection for initial model download
-- Verify PyTorch installation matches your hardware
+```bash
+# Verify PyTorch installation
+python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+```
 
 **Audio Generation Errors:**
-- Check text length (max 10,000 characters)
-- Verify reference audio format if using voice cloning
-- Ensure output directory permissions
+- Verify text length is under 10,000 characters
+- Check reference audio format and file size
+- Ensure output directory has write permissions
+- Try reducing chunk size for complex text
+
+**NLTK Tokenization Warnings:**
+```bash
+# Run the NLTK fix command from installation section
+python -c "import nltk; nltk.download('punkt_tab')"
+```
+
+**Memory Issues:**
+- Reduce chunk size to 100-150 characters
+- Close other applications to free RAM
+- Use CPU mode if GPU memory is insufficient
+
+**Connection Issues:**
+- Check firewall settings for port 5000
+- Verify no other applications are using port 5000
+- Try accessing via `localhost:5000` instead of IP address
 
 ## License
 
