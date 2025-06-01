@@ -160,7 +160,6 @@ def vad_collector(sample_rate: int, frame_duration_ms: int, padding_duration_ms:
 
 def simple_sentence_split(text: str) -> List[str]:
     """Simple sentence splitting fallback when NLTK is not available"""
-    # Split on sentence endings, but be careful with abbreviations and hyphenated words
     sentences = []
     current = ""
     
@@ -216,6 +215,8 @@ def ensure_nltk_data():
         return _nltk_available
     
     try:
+        import nltk
+        
         # Try to find punkt_tab first (newer NLTK versions)
         try:
             nltk.data.find('tokenizers/punkt_tab')
@@ -238,7 +239,6 @@ def ensure_nltk_data():
         logger.info("NLTK punkt tokenizer not found. Attempting download...")
         
         # Get NLTK data path
-        import nltk
         try:
             # Try to use the first writable path
             nltk_data_path = None
@@ -296,74 +296,22 @@ def ensure_nltk_data():
         _nltk_available = False
         return False
 
-def split_text_into_chunks(text_input: str, max_chunk_length: int = 300) -> Tuple[List[str], List[Optional[float]]]:
-    """
-    Split text into chunks suitable for Chatterbox TTS processing.
-    Pack multiple sentences into chunks up to max_chunk_length characters, ending on complete sentences.
-    Handles custom pause markers like [[1.5]] at the end of chunks only.
-    """
-    # Ensure NLTK data is available
-    nltk_available = ensure_nltk_data()
+def split_text_part(text_part: str, max_chunk_length: int, nltk_available: bool) -> List[str]:
+    """Split a text part into appropriately sized chunks"""
+    if not text_part.strip():
+        return []
     
-    # Clean and preprocess text - preserve hyphens in compound words
-    text_input = re.sub(r'\n+', ' ', text_input)  # Replace multiple newlines with space
-    text_input = re.sub(r'\.\s*♪', ' ♪', text_input)  # Handle music note punctuation
-    
-    # Normalize spaces but preserve hyphens in words like "text-to-speech"
-    text_input = re.sub(r'\s+', ' ', text_input)  # Multiple spaces to single space
-    text_input = text_input.strip()  # Remove leading/trailing whitespace
-
-    # Extract pause markers and their positions
-    pause_pattern = r'\[\[([\d.]+)\]\]'
-    pause_markers = {}
-    
-    def replace_pause_marker(match):
+    # First split into sentences
+    if nltk_available:
         try:
-            pause_duration = float(match.group(1))
-            marker_id = f"__PAUSE_MARKER_{len(pause_markers)}__"
-            pause_markers[marker_id] = pause_duration
-            return marker_id
-        except ValueError:
-            logger.warning(f"Invalid pause duration: {match.group(1)}")
-            return match.group(0)
-    
-    # Replace pause markers with temporary placeholders
-    text_with_markers = re.sub(pause_pattern, replace_pause_marker, text_input, flags=re.IGNORECASE)
-
-    # Handle music notes and sentence splitting
-    if '♪' in text_with_markers:
-        song_parts = re.split(r'♪', text_with_markers)
-        sentences = []
-        for i, part in enumerate(song_parts):
-            part = part.strip()
-            if not part:
-                continue
-            if i % 2 == 0:
-                # Non-song parts - split into sentences
-                if nltk_available:
-                    try:
-                        part_sentences = nltk.sent_tokenize(part)
-                    except Exception as e:
-                        logger.warning(f"NLTK tokenization failed: {str(e)}")
-                        part_sentences = simple_sentence_split(part)
-                else:
-                    part_sentences = simple_sentence_split(part)
-                sentences.extend(part_sentences)
-            else:
-                # Song parts - keep as single units
-                sentences.append('♪ ' + part.strip() + ' ♪')
+            sentences = nltk.sent_tokenize(text_part)
+        except Exception as e:
+            logger.warning(f"NLTK tokenization failed: {str(e)}")
+            sentences = simple_sentence_split(text_part)
     else:
-        # Regular sentence splitting
-        if nltk_available:
-            try:
-                sentences = nltk.sent_tokenize(text_with_markers)
-            except Exception as e:
-                logger.warning(f"NLTK tokenization failed: {str(e)}")
-                sentences = simple_sentence_split(text_with_markers)
-        else:
-            sentences = simple_sentence_split(text_with_markers)
-
-    # Pack sentences into chunks
+        sentences = simple_sentence_split(text_part)
+    
+    # Then pack sentences into chunks
     chunks = []
     current_chunk = ""
     
@@ -381,9 +329,8 @@ def split_text_into_chunks(text_input: str, max_chunk_length: int = 300) -> Tupl
                 chunks.append(current_chunk.strip())
                 current_chunk = sentence
             else:
-                # Handle sentences that are too long
+                # Single sentence too long - split by commas, then words
                 if len(sentence) > max_chunk_length:
-                    # Split by commas first
                     comma_parts = [part.strip() for part in sentence.split(',')]
                     for j, part in enumerate(comma_parts):
                         if j < len(comma_parts) - 1:
@@ -398,7 +345,6 @@ def split_text_into_chunks(text_input: str, max_chunk_length: int = 300) -> Tupl
                                 chunks.append(current_chunk.strip())
                                 current_chunk = part
                             else:
-                                # Split by words as last resort
                                 if len(part) > max_chunk_length:
                                     words = part.split()
                                     for word in words:
@@ -416,29 +362,142 @@ def split_text_into_chunks(text_input: str, max_chunk_length: int = 300) -> Tupl
     
     if current_chunk:
         chunks.append(current_chunk.strip())
-
-    # Process chunks to extract pause markers
-    final_chunks = []
-    chunk_pauses = []
     
-    for chunk in chunks:
-        if not chunk.strip():
-            continue
-            
-        custom_pause = None
-        clean_chunk = chunk
-        
-        for marker_id, pause_duration in pause_markers.items():
-            if marker_id in chunk:
-                custom_pause = pause_duration
-                clean_chunk = chunk.replace(marker_id, '').strip()
-                break
-        
-        if clean_chunk:
-            final_chunks.append(clean_chunk)
-            chunk_pauses.append(custom_pause)
+    return [chunk for chunk in chunks if chunk.strip()]
 
-    return final_chunks, chunk_pauses
+def split_text_into_chunks(text_input: str, max_chunk_length: int = 300) -> Tuple[List[dict], List[Optional[float]]]:
+    """
+    Split text into chunks suitable for Chatterbox TTS processing.
+    Break tags become their own chunks with type 'pause'.
+    Text is properly cleaned and separated to avoid TTS model confusion.
+    Returns list of chunk dictionaries with 'type' and 'content' keys.
+    """
+    # Ensure NLTK data is available
+    nltk_available = ensure_nltk_data()
+    
+    # Clean and preprocess text
+    text_input = re.sub(r'\n+', ' ', text_input)
+    text_input = re.sub(r'\s+', ' ', text_input)
+    text_input = text_input.strip()
+
+    logger.info(f"Original text: {text_input}")
+
+    # Step 1: Extract break tags and their positions, then remove them from text
+    break_pattern = r'<break\s+time="([\d.]+)(?:s|ms)?"\s*/>'
+    
+    # Find all break tags with their positions
+    break_matches = []
+    for match in re.finditer(break_pattern, text_input, re.IGNORECASE):
+        time_value = match.group(1)
+        # Determine if it's milliseconds or seconds
+        if 'ms' in match.group(0).lower():
+            pause_duration = float(time_value) / 1000.0
+        else:
+            pause_duration = float(time_value)
+        
+        break_matches.append({
+            'start': match.start(),
+            'end': match.end(),
+            'duration': pause_duration,
+            'original': match.group(0)
+        })
+    
+    logger.info(f"Found {len(break_matches)} break tags")
+    
+    # Step 2: Split text by break tags, keeping clean text segments
+    chunks = []
+    current_pos = 0
+    
+    for break_match in break_matches:
+        # Extract text before this break tag
+        text_before = text_input[current_pos:break_match['start']].strip()
+        
+        # Process the text segment if it's not empty
+        if text_before:
+            processed_chunks = process_text_segment(text_before, max_chunk_length, nltk_available)
+            chunks.extend(processed_chunks)
+        
+        # Add the pause chunk
+        chunks.append({
+            'type': 'pause',
+            'content': break_match['duration']
+        })
+        logger.info(f"Added pause chunk: {break_match['duration']}s")
+        
+        current_pos = break_match['end']
+    
+    # Process any remaining text after the last break tag
+    remaining_text = text_input[current_pos:].strip()
+    if remaining_text:
+        processed_chunks = process_text_segment(remaining_text, max_chunk_length, nltk_available)
+        chunks.extend(processed_chunks)
+    
+    # If no break tags were found, process the entire text normally
+    if not break_matches:
+        processed_chunks = process_text_segment(text_input, max_chunk_length, nltk_available)
+        chunks.extend(processed_chunks)
+    
+    # Clean up any empty text chunks and validate
+    cleaned_chunks = []
+    for chunk in chunks:
+        if chunk['type'] == 'pause':
+            if chunk['content'] > 0:  # Only add valid pause durations
+                cleaned_chunks.append(chunk)
+        elif chunk['type'] == 'text':
+            content = chunk['content'].strip()
+            if content:  # Only add non-empty text chunks
+                cleaned_chunks.append({
+                    'type': 'text',
+                    'content': content
+                })
+    
+    logger.info(f"Final chunks: {len(cleaned_chunks)} total")
+    for idx, chunk in enumerate(cleaned_chunks):
+        if chunk['type'] == 'pause':
+            logger.info(f"Chunk {idx}: PAUSE {chunk['content']}s")
+        else:
+            logger.info(f"Chunk {idx}: TEXT '{chunk['content'][:50]}...'")
+    
+    return cleaned_chunks, []  # Return empty pause list since pauses are now in chunks
+
+def process_text_segment(text_segment: str, max_chunk_length: int, nltk_available: bool) -> List[dict]:
+    """
+    Process a text segment (without break tags) into text chunks.
+    Handles music notes and regular text splitting.
+    """
+    chunks = []
+    
+    if '♪' in text_segment:
+        # Handle music notes separately
+        song_parts = re.split(r'♪', text_segment)
+        for j, song_part in enumerate(song_parts):
+            song_part = song_part.strip()
+            if not song_part:
+                continue
+            if j % 2 == 0:
+                # Non-song parts - split into sentences and then chunks
+                text_chunks = split_text_part(song_part, max_chunk_length, nltk_available)
+                for text_chunk in text_chunks:
+                    chunks.append({
+                        'type': 'text',
+                        'content': text_chunk
+                    })
+            else:
+                # Song parts - keep as single units
+                chunks.append({
+                    'type': 'text',
+                    'content': '♪ ' + song_part.strip() + ' ♪'
+                })
+    else:
+        # Regular text splitting
+        text_chunks = split_text_part(text_segment, max_chunk_length, nltk_available)
+        for text_chunk in text_chunks:
+            chunks.append({
+                'type': 'text',
+                'content': text_chunk
+            })
+    
+    return chunks
 
 def detect_and_fix_audio_artifacts(audio: np.ndarray, sample_rate: int, 
                                   chunk_boundaries: Optional[List[int]] = None) -> np.ndarray:
@@ -458,8 +517,10 @@ def detect_and_fix_audio_artifacts(audio: np.ndarray, sample_rate: int,
         # 3. Remove DC offset
         cleaned_audio = remove_dc_offset(cleaned_audio)
         
-        # 4. Detect and fix glitches in quiet sections
-        cleaned_audio = fix_quiet_section_glitches(cleaned_audio, sample_rate)
+        # 4. Detect and fix glitches in quiet sections (but skip for very quiet audio)
+        rms = np.sqrt(np.mean(cleaned_audio**2))
+        if rms > 0.001:  # Only check for glitches if audio isn't extremely quiet
+            cleaned_audio = fix_quiet_section_glitches(cleaned_audio, sample_rate)
         
         # 5. Smooth sudden amplitude changes
         cleaned_audio = smooth_amplitude_jumps(cleaned_audio, sample_rate)
@@ -840,7 +901,7 @@ def generate_voice(text_input: str, audio_prompt_path: Optional[str] = None,
                   remove_silence: bool = False, seed: int = 0, 
                   progress_callback: Optional[Callable] = None) -> Tuple[Optional[str], int]:
     """
-    Generate voice audio from text input
+    Generate voice audio from text input with break tag support
     Returns: Tuple of (output_filename, actual_seed_used)
     """
     try:
@@ -862,7 +923,9 @@ def generate_voice(text_input: str, audio_prompt_path: Optional[str] = None,
         model, device = get_chatterbox_model()
         
         script = text_input.replace("\n", " ").strip()
-        chunks, chunk_pauses = split_text_into_chunks(script, chunk_size)
+        chunks, _ = split_text_into_chunks(script, chunk_size)  # chunks is now list of dicts
+        
+        logger.info(f"Text split into {len(chunks)} chunks")
         
         if not chunks:
             logger.error("No text chunks to process")
@@ -873,78 +936,92 @@ def generate_voice(text_input: str, audio_prompt_path: Optional[str] = None,
         audio_pieces = []
         sample_rate = model.sr
         
-        # Track chunk boundaries and pause information for artifact detection
+        # Track chunk boundaries for final cleanup
         chunk_boundaries = []
-        pause_info = []
 
-        for i, chunk in enumerate(chunks):
+        for i, chunk_dict in enumerate(chunks):
             parts_processed += 1
-            logger.info(f"Processing part {parts_processed} of {total_parts}: {chunk}")
-
-            try:
-                # Generate audio with Chatterbox
-                if audio_prompt_path and os.path.exists(audio_prompt_path):
-                    wav_tensor = model.generate(
-                        chunk,
-                        audio_prompt_path=audio_prompt_path,
-                        exaggeration=exaggeration,
-                        temperature=temperature,
-                        cfg_weight=cfg_weight
-                    )
-                else:
-                    wav_tensor = model.generate(
-                        chunk,
-                        exaggeration=exaggeration,
-                        temperature=temperature,
-                        cfg_weight=cfg_weight
-                    )
-
-                # Convert tensor to numpy array
-                if isinstance(wav_tensor, torch.Tensor):
-                    audio_array = wav_tensor.squeeze().cpu().numpy()
-                else:
-                    audio_array = wav_tensor
-
-                # Ensure proper format
-                if audio_array.dtype != np.float32:
-                    audio_array = audio_array.astype(np.float32)
-
-                # Normalize
-                max_val = np.max(np.abs(audio_array))
-                if max_val > 0:
-                    audio_array = audio_array / max_val
-
-                audio_pieces.append(audio_array)
-
-                # Add pause after this chunk (except for the last one)
-                if parts_processed != total_parts:
-                    custom_pause = chunk_pauses[i] if i < len(chunk_pauses) else None
-                    next_chunk = chunks[i + 1] if i + 1 < len(chunks) else None
-                    pause_duration = calculate_natural_pause(chunk, next_chunk, sample_rate, custom_pause)
-                    
-                    natural_pause = generate_natural_silence(pause_duration, sample_rate, 'natural')
-                    audio_pieces.append(natural_pause)
-                    
-                    # Track pause info for logging
-                    pause_ms = (pause_duration / sample_rate) * 1000
-                    if custom_pause is not None:
-                        pause_info.append(f"Custom pause after '{chunk[:30]}...': {pause_ms:.0f}ms (requested {custom_pause}s)")
+            chunk_type = chunk_dict['type']
+            chunk_content = chunk_dict['content']
+            
+            if chunk_type == 'pause':
+                # Handle pause chunks
+                logger.info(f"Processing part {parts_processed} of {total_parts}: PAUSE {chunk_content}s")
+                
+                pause_duration = int(chunk_content * sample_rate)
+                natural_pause = generate_natural_silence(pause_duration, sample_rate, 'natural')
+                audio_pieces.append(natural_pause)
+                
+                logger.info(f"Added pause: {chunk_content}s ({pause_duration} samples)")
+                
+            elif chunk_type == 'text':
+                # Handle text chunks
+                logger.info(f"Processing part {parts_processed} of {total_parts}: TEXT '{chunk_content[:50]}...'")
+                
+                try:
+                    # Generate audio with Chatterbox for text chunks
+                    if audio_prompt_path and os.path.exists(audio_prompt_path):
+                        wav_tensor = model.generate(
+                            chunk_content,
+                            audio_prompt_path=audio_prompt_path,
+                            exaggeration=exaggeration,
+                            temperature=temperature,
+                            cfg_weight=cfg_weight
+                        )
                     else:
-                        pause_info.append(f"Natural pause after '{chunk[:30]}...': {pause_ms:.0f}ms")
+                        wav_tensor = model.generate(
+                            chunk_content,
+                            exaggeration=exaggeration,
+                            temperature=temperature,
+                            cfg_weight=cfg_weight
+                        )
+
+                    # Convert tensor to numpy array
+                    if isinstance(wav_tensor, torch.Tensor):
+                        audio_array = wav_tensor.squeeze().cpu().numpy()
+                    else:
+                        audio_array = wav_tensor
+
+                    # Ensure proper format
+                    if audio_array.dtype != np.float32:
+                        audio_array = audio_array.astype(np.float32)
+
+                    # Normalize
+                    max_val = np.max(np.abs(audio_array))
+                    if max_val > 0:
+                        audio_array = audio_array / max_val
+
+                    # Apply artifact cleanup to this TTS chunk only
+                    logger.info(f"Applying artifact cleanup to TTS chunk {parts_processed}")
+                    cleaned_audio = detect_and_fix_audio_artifacts(audio_array, sample_rate, None)
                     
-                    # Track chunk boundary for artifact detection
+                    audio_pieces.append(cleaned_audio)
+                    
+                    # Track chunk boundary
                     current_length = sum(len(piece) for piece in audio_pieces[:-1])
                     chunk_boundaries.append(current_length)
 
-                # Clean up GPU memory
-                if isinstance(wav_tensor, torch.Tensor):
-                    del wav_tensor
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                    # Add natural pause after text chunks (except last one, and if next isn't a pause)
+                    if parts_processed != total_parts:
+                        next_chunk = chunks[i + 1] if i + 1 < len(chunks) else None
+                        # Only add natural pause if next chunk is also text (not a custom pause)
+                        if next_chunk and next_chunk['type'] == 'text':
+                            pause_duration = calculate_natural_pause(chunk_content, next_chunk['content'], sample_rate, None)
+                            natural_pause = generate_natural_silence(pause_duration, sample_rate, 'natural')
+                            audio_pieces.append(natural_pause)
+                            
+                            pause_ms = (pause_duration / sample_rate) * 1000
+                            logger.info(f"Added natural pause: {pause_ms:.0f}ms")
 
-            except Exception as e:
-                logger.error(f"Error generating audio for chunk {parts_processed}: {str(e)}")
-                continue
+                    # Clean up GPU memory
+                    if isinstance(wav_tensor, torch.Tensor):
+                        del wav_tensor
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+
+                except Exception as e:
+                    logger.error(f"Error generating audio for text chunk {parts_processed}: {str(e)}")
+                    continue
 
             if progress_callback:
                 try:
@@ -956,15 +1033,7 @@ def generate_voice(text_input: str, audio_prompt_path: Optional[str] = None,
             logger.error("No audio was generated successfully")
             return None, actual_seed
 
-        # Print pause information for debugging
-        if pause_info:
-            logger.info("Pause timing:")
-            for info in pause_info[:5]:  # Show first 5 pauses
-                logger.info(f"  {info}")
-            if len(pause_info) > 5:
-                logger.info(f"  ... and {len(pause_info) - 5} more pauses")
-
-        # Concatenate all audio pieces
+        # Concatenate all audio pieces (already cleaned TTS chunks + pure silence chunks)
         full_audio = np.concatenate(audio_pieces)
         
         # Normalize the full audio
@@ -972,11 +1041,7 @@ def generate_voice(text_input: str, audio_prompt_path: Optional[str] = None,
         if max_val > 0:
             full_audio = full_audio / max_val
 
-        # Apply artifact detection and cleanup
-        logger.info("Applying audio artifact detection and cleanup...")
-        full_audio = detect_and_fix_audio_artifacts(full_audio, sample_rate, chunk_boundaries)
-        
-        # Analyze audio quality
+        # Analyze audio quality (no more artifact detection here)
         quality_metrics = analyze_audio_quality(full_audio, sample_rate)
 
         # Process audio based on settings

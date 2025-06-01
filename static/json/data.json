@@ -1,0 +1,53 @@
+{
+    "b7a71cfa8f1242af9b8e82108762f1b0": {
+        "textInput": "Artificial intelligence <break time=\"3.0s\" /> is transforming the way we interact with <break time=\"500ms\" />machines, making communication more natural and intuitive. Text-to-speech technology, powered by AI, allows computers to convert written words into spoken language with increasing fluency and realism. This capability is essential for accessibility, virtual assistants, and interactive voice response systems.",
+        "audioPromptPath": null,
+        "exaggeration": 0.5,
+        "temperature": 0.8,
+        "cfgWeight": 0.5,
+        "chunkSize": 130,
+        "speed": 1.0,
+        "pitch": 0,
+        "reduceNoise": false,
+        "removeSilence": false,
+        "seed": 618749,
+        "actualSeed": 618749,
+        "outputFile": "b7a71cfa8f1242af9b8e82108762f1b0.wav",
+        "generationTime": 6.23,
+        "timestamp": 1748778009.6938024
+    },
+    "22c23a6c27004e91ba5e84f0ee00d5d3": {
+        "textInput": "Artificial intelligence <break time=\"3.0s\" /> is transforming the way we interact with <break time=\"5.0s\" />machines, making communication more natural and intuitive. Text-to-speech technology, powered by AI, allows computers to convert written words into spoken language with increasing fluency and realism. This capability is essential for accessibility, virtual assistants, and interactive voice response systems.",
+        "audioPromptPath": null,
+        "exaggeration": 0.5,
+        "temperature": 0.8,
+        "cfgWeight": 0.5,
+        "chunkSize": 130,
+        "speed": 1.0,
+        "pitch": 0,
+        "reduceNoise": false,
+        "removeSilence": false,
+        "seed": 766531,
+        "actualSeed": 766531,
+        "outputFile": "22c23a6c27004e91ba5e84f0ee00d5d3.wav",
+        "generationTime": 6.01,
+        "timestamp": 1748777971.610552
+    },
+    "558034f722824b948e0a1d65a4a5e7fa": {
+        "textInput": "Artificial intelligence <break time=\"3.0s\" /> is transforming the way we interact with machines, making communication more natural and intuitive. Text-to-speech technology, powered by AI, allows computers to convert written words into spoken language with increasing fluency and realism. This capability is essential for accessibility, virtual assistants, and interactive voice response systems.",
+        "audioPromptPath": null,
+        "exaggeration": 0.5,
+        "temperature": 0.8,
+        "cfgWeight": 0.5,
+        "chunkSize": 130,
+        "speed": 1.0,
+        "pitch": 0,
+        "reduceNoise": false,
+        "removeSilence": false,
+        "seed": 926117,
+        "actualSeed": 926117,
+        "outputFile": "558034f722824b948e0a1d65a4a5e7fa.wav",
+        "generationTime": 13.11,
+        "timestamp": 1748777932.5037203
+    }
+}

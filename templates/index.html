@@ -41,7 +41,9 @@
     </header>
       <main>
         <form id="generator-form">
-          <textarea name="text-input" id="text-input" rows="10" cols="50" placeholder="Enter your text here (max {{ max_text_length|format_number }} characters)..."></textarea>
+          <textarea name="text-input" id="text-input" rows="10" cols="50" placeholder="Enter your text here (max {{ max_text_length|format_number }} characters)...&#10;&#10;Use break tags for custom pauses:&#10;• <break time=&quot;1.5s&quot; /> for 1.5 second pause&#10;• <break time=&quot;500ms&quot; /> for 500 millisecond pause&#10;• Place breaks between sentences or paragraphs for best results"></textarea>
+          
+          <span class="more-info"><p class="small"><strong>Break Tags for Custom Pauses:</strong> You can add custom pauses to your text using break tags. Use <code>&lt;break time="1.5s" /&gt;</code> for a 1.5 second pause, or <code>&lt;break time="500ms" /&gt;</code> for a 500 millisecond pause. For best results, place break tags between complete sentences or paragraphs rather than in the middle of sentences. This ensures the TTS model processes clean text segments without interruption.</p><p class="small"><strong>Examples:</strong><br/>• "Hello there. &lt;break time="2s" /&gt; How are you today?"<br/>• "First paragraph here. &lt;break time="1.5s" /&gt; Second paragraph starts here."<br/>• "End of sentence. &lt;break time="800ms" /&gt; Next sentence begins."</p></span><span class="more-info-link">Break Tags Usage</span>
           
           <div class="file-upload-container">
             <label for="audio-prompt" class="file-upload-label">
