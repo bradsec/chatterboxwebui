@@ -19,7 +19,11 @@ This application is a Python Flask-based web UI designed to facilitate text-to-s
 
 ## Sample Audio
 
-https://github.com/user-attachments/assets/ad5d06b3-071c-432f-b73c-d338cca01279
+### Male
+https://github.com/user-attachments/assets/9a4c0ea3-98b5-48f7-a377-2af7bed90b5e
+
+### Female
+https://github.com/user-attachments/assets/a264abc0-e6f2-4dc5-b7a0-638c36f0fcee
 
 ## Installation
 
@@ -208,8 +212,6 @@ python server.py
 | **Short clips** | 5,000 chars | 30 seconds - 2 minutes | 4GB+ RAM |
 | **Default** | 10,000 chars | 1-5 minutes | 4GB+ RAM |
 | **Long articles** | 25,000 chars | 5-15 minutes | 8GB+ RAM |
-| **Book chapters** | 50,000 chars | 15-45 minutes | 8GB+ RAM, GPU recommended |
-| **Large documents** | 100,000+ chars | 45+ minutes | 16GB+ RAM, GPU recommended |
 
 **Performance considerations for higher limits:**
 - Longer texts require more memory and processing time
@@ -245,25 +247,6 @@ chatterboxwebui/
 │       └── data.json        # Generation history and metadata (auto-created)
 ```
 
-## System Requirements
-
-### Minimum Requirements
-- **CPU**: Multi-core processor (Intel i5/AMD Ryzen 5 or better)
-- **RAM**: 4GB (8GB+ recommended)
-- **Storage**: 2GB free space for models and generated audio
-- **Python**: 3.10 or newer
-
-### Recommended Requirements
-- **CPU**: Intel i7/AMD Ryzen 7 or better
-- **RAM**: 8GB+ 
-- **GPU**: NVIDIA GPU with 4GB+ VRAM (for faster generation)
-- **Storage**: 5GB+ free space
-
-### GPU Acceleration
-- **NVIDIA**: Requires CUDA 11.8+ and compatible PyTorch installation
-- **Apple Silicon**: Automatic MPS acceleration on M1/M2/M3 Macs
-- **CPU Fallback**: Works on any system, but slower generation times
-
 ## Troubleshooting
 
 ### Common Issues
@@ -271,8 +254,6 @@ chatterboxwebui/
 **Model Loading Issues:**
 ```bash
 # Ensure sufficient disk space and internet connectivity
-df -h  # Check disk space
-ping google.com  # Check internet connection
 
 # Verify PyTorch installation
 python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
@@ -288,12 +269,6 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 - If you need longer texts, increase the limit: `export MAX_TEXT_LENGTH=25000`
 - Consider your system's memory when setting higher limits
 - Very long texts may require GPU acceleration for reasonable generation times
-
-**NLTK Tokenization Warnings:**
-```bash
-# Run the NLTK fix command from installation section
-python -c "import nltk; nltk.download('punkt_tab')"
-```
 
 **Memory Issues:**
 - Reduce chunk size to 100-150 characters
@@ -313,57 +288,6 @@ python -c "import nltk; nltk.download('punkt_tab')"
 - Disable noise reduction and silence removal
 - Use lower temperature values (0.5-0.7)
 
-**For Better Quality:**
-- Use smaller chunk sizes (100-150) for complex text
-- Enable noise reduction
-- Use higher quality reference audio (16kHz+, mono)
-- Experiment with exaggeration values
-
-### Logs and Debugging
-
-```bash
-# View detailed logs
-python server.py
-
-# Check model loading
-python -c "from connector import get_chatterbox_model; get_chatterbox_model()"
-
-# Test audio generation
-python -c "from connector import generate_voice; print(generate_voice('Hello world test'))"
-```
-
-## API Reference
-
-The application provides a web interface, but you can also use the core functions:
-
-```python
-from connector import generate_voice
-
-# Generate audio from text
-filename = generate_voice(
-    text_input="Hello, this is a test.",
-    audio_prompt_path=None,  # Optional reference audio
-    exaggeration=0.5,
-    temperature=0.8,
-    cfg_weight=0.5,
-    chunk_size=130,
-    speed=1.0,
-    pitch=0,
-    reduce_noise=False,
-    remove_silence=False,
-    seed=0
-)
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes and test thoroughly
-4. Commit your changes: `git commit -am 'Add feature'`
-5. Push to the branch: `git push origin feature-name`
-6. Submit a pull request
-
 ## License
 
 This project maintains the same MIT license as Chatterbox TTS. See the original [Chatterbox repository](https://github.com/resemble-ai/chatterbox) for details.
@@ -371,18 +295,7 @@ This project maintains the same MIT license as Chatterbox TTS. See the original 
 ## Acknowledgements
 
 - [Resemble AI](https://resemble.ai) for creating Chatterbox TTS
-- The open-source community for the various libraries used in this project
-- Contributors and users providing feedback and improvements
 
-## Changelog
+## Disclaimer
 
-### Recent Improvements
-- Enhanced security with input validation and file type checking
-- Improved error handling and user feedback
-- Better memory management and performance optimization
-- Added custom pause control with `[[duration]]` syntax
-- Real-time character counting and form validation
-- Automatic form state persistence
-- Enhanced audio artifact detection and cleanup
-- Better NLTK data management
-- Improved progress tracking and connection handling
+Don't do bad things.
