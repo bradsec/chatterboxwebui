@@ -384,6 +384,29 @@ python -c "from connector import get_chatterbox_model; get_chatterbox_model()"
 python -c "from connector import generate_voice; print(generate_voice('Hello world test'))"
 ```
 
+## API Reference
+
+The application provides a web interface, but you can also use the core functions:
+
+```python
+from connector import generate_voice
+
+# Generate audio from text
+filename = generate_voice(
+    text_input="Hello, this is a test.",
+    audio_prompt_path=None,  # Optional reference audio
+    exaggeration=0.5,
+    temperature=0.8,
+    cfg_weight=0.5,
+    chunk_size=130,
+    speed=1.0,
+    pitch=0,
+    reduce_noise=False,
+    remove_silence=False,
+    seed=0
+)
+```
+
 ## License
 
 This project maintains the same MIT license as Chatterbox TTS. See the original [Chatterbox repository](https://github.com/resemble-ai/chatterbox) for details.
