@@ -18,6 +18,15 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
 socketio = SocketIO(app, max_http_buffer_size=50 * 1024 * 1024, cors_allowed_origins="*")
 
+# Add template filter for formatting numbers
+@app.template_filter('format_number')
+def format_number(value):
+    """Format numbers with thousands separators"""
+    try:
+        return f"{int(value):,}"
+    except (ValueError, TypeError):
+        return str(value)
+
 # Allowed audio file extensions
 ALLOWED_EXTENSIONS = {'wav', 'mp3', 'flac', 'opus', 'm4a', 'ogg'}
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
@@ -73,7 +82,8 @@ def handle_internal_error(e):
 
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+    max_text_length = int(os.environ.get('MAX_TEXT_LENGTH', 10000))
+    return render_template('index.html', max_text_length=max_text_length)
 
 @app.route('/static/output/<path:filename>')
 def serve_static(filename):
@@ -148,9 +158,10 @@ def handle_start_generation(data):
             emit('error', {'error': 'Text is empty.'})
             return
 
-        # Check text length
-        if len(text_input) > 10000:
-            emit('error', {'error': 'Text is too long. Please limit to 10,000 characters.'})
+        # Check text length - configurable limit
+        max_text_length = int(os.environ.get('MAX_TEXT_LENGTH', 10000))
+        if len(text_input) > max_text_length:
+            emit('error', {'error': f'Text is too long. Please limit to {max_text_length:,} characters.'})
             return
 
         # Extract and validate parameters
@@ -195,7 +206,7 @@ def handle_start_generation(data):
 
         # Generate audio
         start_time = time.time()
-        filename = generate_voice(
+        result = generate_voice(
             text_input=text_input,
             audio_prompt_path=audio_prompt_path,
             exaggeration=exaggeration,
@@ -212,12 +223,18 @@ def handle_start_generation(data):
         end_time = time.time()
         duration = round(end_time - start_time, 2)
         
+        # Handle the returned tuple (filename, actual_seed)
+        if result and len(result) == 2:
+            filename, actual_seed = result
+        else:
+            filename, actual_seed = None, seed
+        
         logger.info(f"Generation completed in {duration} seconds")
 
         if filename:
-            # Save generation data to JSON
+            # Save generation data to JSON with actual seed used
             write_to_json(text_input, filename, audio_prompt_filename, exaggeration, temperature, 
-                         cfg_weight, chunk_size, speed, pitch, reduce_noise, remove_silence, seed, duration)
+                         cfg_weight, chunk_size, speed, pitch, reduce_noise, remove_silence, actual_seed, duration)
             
             emit('generation_complete', {'filename': filename, 'generation_time': duration})
         else:
@@ -287,6 +304,7 @@ def write_to_json(text_input, filename, audio_prompt_path, exaggeration, tempera
             'reduceNoise': reduce_noise,
             'removeSilence': remove_silence,
             'seed': seed,
+            'actualSeed': seed,  # Store the actual seed used (same as seed for now, but will differ when seed=0)
             'outputFile': filename,
             'generationTime': duration,
             'timestamp': time.time()

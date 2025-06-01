@@ -838,18 +838,26 @@ def generate_voice(text_input: str, audio_prompt_path: Optional[str] = None,
                   cfg_weight: float = 0.5, chunk_size: int = 300, 
                   speed: float = 1.0, pitch: int = 0, reduce_noise: bool = False, 
                   remove_silence: bool = False, seed: int = 0, 
-                  progress_callback: Optional[Callable] = None) -> Optional[str]:
-    """Generate voice audio from text input"""
+                  progress_callback: Optional[Callable] = None) -> Tuple[Optional[str], int]:
+    """
+    Generate voice audio from text input
+    Returns: Tuple of (output_filename, actual_seed_used)
+    """
     try:
         logger.info("Generating text with Chatterbox TTS...")
         logger.info(f"Audio Prompt: {audio_prompt_path}, Exaggeration: {exaggeration}, Temperature: {temperature}")
         logger.info(f"CFG Weight: {cfg_weight}, Chunk Size: {chunk_size}, Speed: {speed}, Pitch: {pitch}, Seed: {seed}")
         logger.info(f"Reduce Noise: {reduce_noise}, Remove Silence: {remove_silence}")
         
-        # Set seed for reproducible generation
-        if seed != 0:
-            set_seed(int(seed))
-            logger.info(f"Set random seed to: {seed}")
+        # Handle seed generation and set for reproducible generation
+        actual_seed = seed
+        if seed == 0:
+            # Generate a random seed and capture it
+            actual_seed = random.randint(1, 999999)
+            logger.info(f"Generated random seed: {actual_seed}")
+        
+        set_seed(int(actual_seed))
+        logger.info(f"Set random seed to: {actual_seed}")
         
         model, device = get_chatterbox_model()
         
@@ -858,7 +866,7 @@ def generate_voice(text_input: str, audio_prompt_path: Optional[str] = None,
         
         if not chunks:
             logger.error("No text chunks to process")
-            return None
+            return None, actual_seed
             
         total_parts = len(chunks)
         parts_processed = 0
@@ -946,7 +954,7 @@ def generate_voice(text_input: str, audio_prompt_path: Optional[str] = None,
 
         if not audio_pieces:
             logger.error("No audio was generated successfully")
-            return None
+            return None, actual_seed
 
         # Print pause information for debugging
         if pause_info:
@@ -1051,15 +1059,15 @@ def generate_voice(text_input: str, audio_prompt_path: Optional[str] = None,
             # Use torchaudio to save
             ta.save(output_path, final_audio_tensor, sample_rate)
 
-            logger.info(f"Audio generation completed: {output_filename}")
-            return output_filename
+            logger.info(f"Audio generation completed: {output_filename} (seed: {actual_seed})")
+            return output_filename, actual_seed
         
         logger.error("No final audio generated")
-        return None
+        return None, actual_seed
 
     except Exception as e:
         logger.error(f"Error in voice generation: {str(e)}")
-        return None
+        return None, seed if seed != 0 else random.randint(1, 999999)
     finally:
         # Clean up memory
         try:

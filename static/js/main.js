@@ -33,12 +33,32 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Input validation functions
+  // Get max text length from the server (passed via template)
+  const getMaxTextLength = () => {
+    // Try to get from data attribute set by server
+    const bodyMaxLength = document.body.dataset.maxTextLength;
+    if (bodyMaxLength) {
+      return parseInt(bodyMaxLength);
+    }
+    
+    // Try to get from meta tag
+    const metaTag = document.querySelector('meta[name="max-text-length"]');
+    if (metaTag) {
+      return parseInt(metaTag.content);
+    }
+    
+    // Fallback to default
+    return 10000;
+  };
+
+  const MAX_TEXT_LENGTH = getMaxTextLength();
+
   function validateText(text) {
     if (!text || text.trim() === '') {
       return { valid: false, error: 'Text is empty.' };
     }
-    if (text.length > 10000) {
-      return { valid: false, error: 'Text is too long. Please limit to 10,000 characters.' };
+    if (text.length > MAX_TEXT_LENGTH) {
+      return { valid: false, error: `Text is too long. Please limit to ${MAX_TEXT_LENGTH.toLocaleString()} characters.` };
     }
     return { valid: true };
   }
@@ -76,7 +96,6 @@ document.addEventListener('DOMContentLoaded', function() {
   function updateCharacterCount() {
     const text = textInput.value;
     const charCount = text.length;
-    const maxChars = 10000;
     
     // Create or update character counter
     let counter = document.getElementById('char-counter');
@@ -90,8 +109,8 @@ document.addEventListener('DOMContentLoaded', function() {
       textInput.parentNode.insertBefore(counter, textInput.nextSibling);
     }
     
-    counter.textContent = `${charCount}/${maxChars} characters`;
-    counter.style.color = charCount > maxChars ? '#ff4444' : 'var(--font-color)';
+    counter.textContent = `${charCount.toLocaleString()}/${MAX_TEXT_LENGTH.toLocaleString()} characters`;
+    counter.style.color = charCount > MAX_TEXT_LENGTH ? '#ff4444' : 'var(--font-color)';
   }
 
   // Handle file input display with validation
@@ -299,6 +318,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     if (chunkSize < 50 || chunkSize > 300) {
       showError('Chunk size must be between 50 and 300');
+      return;
+    }
+    if (textInputValue.length > MAX_TEXT_LENGTH) {
+      showError(`Text is too long. Please limit to ${MAX_TEXT_LENGTH.toLocaleString()} characters.`);
       return;
     }
 
@@ -621,7 +644,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setTextContent('.pitch', 'Pitch: ' + pitch);
     setTextContent('.reduce-noise', 'RN: ' + reduceNoise);
     setTextContent('.remove-silence', 'RS: ' + removeSilence);
-    setTextContent('.seed', 'Seed: ' + (seed === 0 ? 'Random' : seed));
+    setTextContent('.seed', 'Seed: ' + (seed === 0 ? `Random (${item.actualSeed || 'Unknown'})` : seed));
 
     const textInputElement = audioItem.querySelector('.text-input');
     if (textInputElement) {
