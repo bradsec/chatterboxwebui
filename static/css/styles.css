@@ -18,6 +18,19 @@
   --card-line-height: 1.2em;
   --card-bg-color: #fafafa;
   --card-border: 1px solid #f0f0f0;
+  /* Flash messages */
+  --flash-success-bg: #d4edda;
+  --flash-success-color: #155724;
+  --flash-success-border: #c3e6cb;
+  --flash-error-bg: #f8d7da;
+  --flash-error-color: #721c24;
+  --flash-error-border: #f5c6cb;
+  --flash-warning-bg: #fff3cd;
+  --flash-warning-color: #856404;
+  --flash-warning-border: #ffeaa7;
+  --flash-info-bg: #d1ecf1;
+  --flash-info-color: #0c5460;
+  --flash-info-border: #bee5eb;
   /* Main elements */
   --bg-color: #f0f0f0;
   --main-bg-color: #ffffff;
@@ -53,6 +66,19 @@
   /* Cards (dark mode) */
   --card-bg-color: #252525;
   --card-border: none;
+  /* Flash messages (dark mode) */
+  --flash-success-bg: #1e4620;
+  --flash-success-color: #b8e6c1;
+  --flash-success-border: #2d5a31;
+  --flash-error-bg: #4a1e1e;
+  --flash-error-color: #f5c6cb;
+  --flash-error-border: #6d2c2c;
+  --flash-warning-bg: #4a3d1e;
+  --flash-warning-color: #fff3cd;
+  --flash-warning-border: #6d5a2c;
+  --flash-info-bg: #1e3a4a;
+  --flash-info-color: #bee5eb;
+  --flash-info-border: #2c5a6d;
   /* Main elements */
   --bg-color: #1c1c1c;
   --main-bg-color: #202020;
@@ -198,6 +224,78 @@ a:hover {
 
 .bold {
   font-weight: bold;
+}
+
+/* Flash Message System */
+.flash-message {
+  padding: 12px 16px;
+  margin: 10px 0;
+  border: 1px solid;
+  border-radius: 4px;
+  font-weight: 500;
+  position: relative;
+  transition: opacity 0.3s ease;
+  z-index: 1000;
+}
+
+.flash-success {
+  background-color: var(--flash-success-bg);
+  color: var(--flash-success-color);
+  border-color: var(--flash-success-border);
+}
+
+.flash-error {
+  background-color: var(--flash-error-bg);
+  color: var(--flash-error-color);
+  border-color: var(--flash-error-border);
+}
+
+.flash-warning {
+  background-color: var(--flash-warning-bg);
+  color: var(--flash-warning-color);
+  border-color: var(--flash-warning-border);
+}
+
+.flash-info {
+  background-color: var(--flash-info-bg);
+  color: var(--flash-info-color);
+  border-color: var(--flash-info-border);
+}
+
+/* Audio Controls Section */
+.audio-controls {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+  padding: 10px 0;
+}
+
+.delete-all-button {
+  background-color: #dc3545;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin: 0;
+}
+
+.delete-all-button:hover {
+  background-color: #c82333;
+}
+
+.delete-all-button:active {
+  background-color: #bd2130;
+  box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.125);
+}
+
+.delete-all-button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .spinner {

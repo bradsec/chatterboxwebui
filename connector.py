@@ -395,7 +395,7 @@ def split_text_into_chunks(text_input: str, max_chunk_length: int = 300) -> Tupl
     # Ensure NLTK data is available
     nltk_available = ensure_nltk_data()
     
-    # Clean and preprocess text
+    # Basic text cleaning - normalize whitespace
     text_input = re.sub(r'\n+', ' ', text_input)
     text_input = re.sub(r'\s+', ' ', text_input)
     text_input = text_input.strip()

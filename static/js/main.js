@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // DOM element references
   const generateButton = document.getElementById('generate-button');
   const resetButton = document.getElementById('reset-button');
+  const deleteAllButton = document.getElementById('delete-all-button');
   const audioList = document.getElementById('audio-list');
   const progressContainer = document.querySelector('.progress-container');
   const progressComplete = document.querySelector('.progress-complete');
@@ -18,6 +19,37 @@ document.addEventListener('DOMContentLoaded', function() {
   // Track current uploaded file
   let currentUploadedFile = null;
   let isGenerating = false;
+
+  // Flash notification system
+  function showFlashMessage(message, type = 'success') {
+    // Remove any existing flash messages
+    const existingFlash = document.querySelector('.flash-message');
+    if (existingFlash) {
+      existingFlash.remove();
+    }
+
+    // Create flash message element
+    const flashMessage = document.createElement('div');
+    flashMessage.className = `flash-message flash-${type}`;
+    flashMessage.textContent = message;
+
+    // Insert at the top of the page
+    const wrapper = document.querySelector('.wrapper');
+    const header = wrapper.querySelector('header');
+    wrapper.insertBefore(flashMessage, header.nextSibling);
+
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      if (flashMessage.parentNode) {
+        flashMessage.style.opacity = '0';
+        setTimeout(() => {
+          if (flashMessage.parentNode) {
+            flashMessage.remove();
+          }
+        }, 300);
+      }
+    }, 3000);
+  }
 
   // Debounce function for preventing rapid clicks
   function debounce(func, wait) {
@@ -83,14 +115,9 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function showError(message) {
-    progressComplete.textContent = `Error: ${message}`;
-    progressComplete.style.color = '#ff4444';
+    showFlashMessage(message, 'error');
     progressContainer.classList.add('hide');
-    
-    setTimeout(() => {
-      progressComplete.textContent = "";
-      progressComplete.style.color = 'var(--primary-btn-bg-color)';
-    }, 5000);
+    progressComplete.textContent = "";
   }
 
   function updateCharacterCount() {
@@ -142,6 +169,8 @@ document.addEventListener('DOMContentLoaded', function() {
   clearAudioButton.addEventListener('click', debounce(clearReferenceAudio, 300));
 
   function clearReferenceAudio() {
+    const wasFileSelected = fileInput.files[0] || currentUploadedFile;
+    
     fileInput.value = '';
     fileNameDisplay.textContent = 'No file selected';
     fileNameDisplay.style.color = 'var(--font-color)';
@@ -160,6 +189,9 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         if (data.success) {
           console.log('Reference audio cleared from server:', data.message);
+          if (wasFileSelected) {
+            showFlashMessage('Reference audio cleared', 'info');
+          }
         } else {
           console.error('Error clearing reference audio:', data.error);
         }
@@ -167,6 +199,8 @@ document.addEventListener('DOMContentLoaded', function() {
       .catch(error => {
         console.error('Error clearing reference audio:', error);
       });
+    } else if (wasFileSelected) {
+      showFlashMessage('Reference audio cleared', 'info');
     }
     
     currentUploadedFile = null;
@@ -219,6 +253,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
+  // Delete all button functionality
+  if (deleteAllButton) {
+    deleteAllButton.addEventListener('click', function() {
+      const audioCards = document.querySelectorAll('.audio-item');
+      if (audioCards.length === 0) {
+        showFlashMessage('No audio files to delete', 'info');
+        return;
+      }
+      
+      if (confirm(`Are you sure you want to delete all ${audioCards.length} audio files? This action cannot be undone.`)) {
+        deleteAllAudioFiles();
+      }
+    });
+  }
+
   function resetToDefaults() {
     // Clear reference audio first
     clearReferenceAudio();
@@ -255,6 +304,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear localStorage
     clearStoredSettings();
     
+    showFlashMessage('All settings reset to defaults', 'success');
     console.log('All settings reset to defaults');
   }
 
@@ -265,6 +315,84 @@ document.addEventListener('DOMContentLoaded', function() {
     ];
     
     settingsKeys.forEach(key => localStorage.removeItem(key));
+  }
+
+  // Delete all audio files function
+  function deleteAllAudioFiles() {
+    const audioCards = document.querySelectorAll('.audio-item');
+    const totalFiles = audioCards.length;
+    let deletedCount = 0;
+    let failedCount = 0;
+
+    if (totalFiles === 0) {
+      showFlashMessage('No audio files to delete', 'info');
+      return;
+    }
+
+    // Disable the delete all button to prevent multiple clicks
+    if (deleteAllButton) {
+      deleteAllButton.disabled = true;
+      deleteAllButton.textContent = 'Deleting...';
+    }
+
+    // Clear progress complete message if it was showing
+    if (progressComplete.classList.contains('hide') === false) {
+      progressComplete.textContent = "";
+    }
+
+    // Delete each file
+    audioCards.forEach((card, index) => {
+      const filename = card.querySelector('.filename').textContent;
+      
+      fetch('static/output/' + filename, { method: 'DELETE' })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          deletedCount++;
+          card.style.opacity = '0.5';
+          card.style.transition = 'opacity 0.3s ease';
+          
+          // Check if this is the last file
+          if (deletedCount + failedCount === totalFiles) {
+            completeDeleteAll(deletedCount, failedCount, totalFiles);
+          }
+        })
+        .catch(error => {
+          console.error('Error deleting file:', filename, error);
+          failedCount++;
+          
+          // Check if this is the last file
+          if (deletedCount + failedCount === totalFiles) {
+            completeDeleteAll(deletedCount, failedCount, totalFiles);
+          }
+        });
+    });
+  }
+
+  function completeDeleteAll(deletedCount, failedCount, totalFiles) {
+    // Re-enable delete all button
+    if (deleteAllButton) {
+      deleteAllButton.disabled = false;
+      deleteAllButton.textContent = 'Delete All';
+    }
+
+    // Show result message
+    if (failedCount === 0) {
+      showFlashMessage(`Successfully deleted all ${deletedCount} audio files`, 'success');
+    } else if (deletedCount === 0) {
+      showFlashMessage(`Failed to delete any files (${failedCount} errors)`, 'error');
+    } else {
+      showFlashMessage(`Deleted ${deletedCount} files, ${failedCount} failed`, 'warning');
+    }
+
+    // Reload the audio list to reflect changes
+    setTimeout(() => {
+      loadAudioList();
+    }, 500);
   }
 
   // Form submission with enhanced validation
@@ -396,7 +524,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const formData = new FormData();
       formData.append('audio_file', audioPromptFile);
 
-      // Show uploading status
+      // Show uploading status in progress area (temporary)
       progressComplete.textContent = "Uploading reference audio...";
       progressContainer.classList.remove('hide');
       progressComplete.classList.remove('hide');
@@ -414,6 +542,7 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         if (data.success) {
           currentUploadedFile = data.filename;
+          showFlashMessage(`Reference audio uploaded: ${audioPromptFile.name}`, 'success');
           startGeneration(data.filename);
         } else {
           throw new Error(data.error || 'Upload failed');
@@ -421,7 +550,7 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .catch(error => {
         console.error('Upload error:', error);
-        showError('Error uploading file: ' + error.message);
+        showFlashMessage(`Upload failed: ${error.message}`, 'error');
         isGenerating = false;
         generateButton.disabled = false;
         progressContainer.classList.add('hide');
@@ -481,42 +610,50 @@ document.addEventListener('DOMContentLoaded', function() {
     isGenerating = false;
     generateButton.disabled = false;
     progressContainer.classList.add('hide');
-    progressComplete.textContent = "Generation completed in " + formatTime(data.generation_time) + ".";
-    progressComplete.style.color = 'var(--primary-btn-bg-color)';
+    progressComplete.textContent = "";
     
-    // Scroll to the completion message
-    progressComplete.scrollIntoView({ behavior: 'smooth' });
+    // Show flash notification for completed generation
+    const generationTime = formatTime(data.generation_time);
+    showFlashMessage(`🎉 Audio generation completed successfully in ${generationTime}!`, 'success');
 
     // Highlight new card
     isNewCard = true;
   
     // Load the updated audio list
-    if (progressContainer.classList.contains('hide')) {
-      loadAudioList(() => {
-        isNewCard = false;
-      });
-    }
+    loadAudioList(() => {
+      isNewCard = false;
+      // Scroll to the new audio card after it's loaded
+      setTimeout(() => {
+        const newCard = document.querySelector('.new-card');
+        if (newCard) {
+          newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    });
   });
 
   socket.on('error', function(data) {
     console.error('Generation error:', data.error);
     isGenerating = false;
     generateButton.disabled = false;
-    showError(data.error);
+    progressContainer.classList.add('hide');
+    progressComplete.textContent = "";
+    showFlashMessage(`Generation failed: ${data.error}`, 'error');
   });
 
   socket.on('connect_error', function(error) {
     console.error('Socket connection error:', error);
-    showError('Connection error. Please refresh the page.');
+    showFlashMessage('Connection error. Please refresh the page.', 'error');
   });
 
   socket.on('disconnect', function(reason) {
     console.log('Socket disconnected:', reason);
     if (isGenerating) {
-      showError('Connection lost during generation. Please try again.');
+      showFlashMessage('Connection lost during generation. Please try again.', 'warning');
       isGenerating = false;
       generateButton.disabled = false;
       progressContainer.classList.add('hide');
+      progressComplete.textContent = "";
     }
   });
 
@@ -567,6 +704,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear the existing audio list
     audioList.innerHTML = '';
 
+    // Update delete all button visibility
+    updateDeleteAllButton();
+
     // Fetch the JSON data
     fetch('static/json/data.json')
       .then(response => {
@@ -582,6 +722,8 @@ document.addEventListener('DOMContentLoaded', function() {
             createAudioCard(item, key);
           }
         }
+        // Update delete all button after loading cards
+        updateDeleteAllButton();
       })
       .catch(error => {
         if (error.message === 'JSON data file not found') {
@@ -589,10 +731,24 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           console.error('Error loading audio list:', error);
         }
+        // Update delete all button even on error
+        updateDeleteAllButton();
       })
       .finally(() => {
         if (callback) callback();
       });
+  }
+
+  function updateDeleteAllButton() {
+    if (deleteAllButton) {
+      const audioCards = document.querySelectorAll('.audio-item');
+      if (audioCards.length > 0) {
+        deleteAllButton.style.display = 'inline-block';
+        deleteAllButton.textContent = `Delete All (${audioCards.length})`;
+      } else {
+        deleteAllButton.style.display = 'none';
+      }
+    }
   }
 
   function createAudioCard(item, key) {
@@ -666,16 +822,17 @@ document.addEventListener('DOMContentLoaded', function() {
         event.preventDefault();
         const parentCard = event.target.closest('.card');
         
-        if (confirm('Are you sure you want to delete this audio file?')) {
-          if (parentCard && parentCard.classList.contains('new-card')) {
-            progressComplete.textContent = "";
-          }
-          
-          if (parentCard) {
-            parentCard.classList.add('hide');
-          }
-          deleteAudioFile(filename);
+        // No confirmation popup - just delete immediately
+        if (parentCard && parentCard.classList.contains('new-card')) {
+          progressComplete.textContent = "";
         }
+        
+        if (parentCard) {
+          parentCard.style.opacity = '0.5';
+          parentCard.style.transition = 'opacity 0.3s ease';
+        }
+        
+        deleteAudioFile(filename, parentCard);
       });
     }
 
@@ -699,11 +856,11 @@ document.addEventListener('DOMContentLoaded', function() {
       document.body.removeChild(link);
     } catch (error) {
       console.error('Error downloading file:', error);
-      showError('Error downloading file');
+      showFlashMessage('Error downloading file', 'error');
     }
   }
 
-  function deleteAudioFile(filename) {
+  function deleteAudioFile(filename, cardElement) {
     fetch('static/output/' + filename, { method: 'DELETE' })
       .then(response => {
         if (!response.ok) {
@@ -713,10 +870,24 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .then(data => {
         console.log('File deleted:', filename);
+        showFlashMessage(`Deleted: ${filename}`, 'success');
+        
+        // Remove the card from the DOM
+        if (cardElement) {
+          setTimeout(() => {
+            cardElement.remove();
+            updateDeleteAllButton();
+          }, 300);
+        }
       })
       .catch(error => {
         console.error('Error deleting file:', error);
-        showError('Error deleting file');
+        showFlashMessage(`Failed to delete: ${filename}`, 'error');
+        
+        // Restore card opacity on error
+        if (cardElement) {
+          cardElement.style.opacity = '1';
+        }
       });
   }
 
