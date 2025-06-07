@@ -18,19 +18,19 @@
   --card-line-height: 1.2em;
   --card-bg-color: #fafafa;
   --card-border: 1px solid #f0f0f0;
-  /* Flash messages */
-  --flash-success-bg: #d4edda;
-  --flash-success-color: #155724;
-  --flash-success-border: #c3e6cb;
-  --flash-error-bg: #f8d7da;
-  --flash-error-color: #721c24;
-  --flash-error-border: #f5c6cb;
-  --flash-warning-bg: #fff3cd;
-  --flash-warning-color: #856404;
-  --flash-warning-border: #ffeaa7;
-  --flash-info-bg: #d1ecf1;
-  --flash-info-color: #0c5460;
-  --flash-info-border: #bee5eb;
+  /* Flash messages - improved colors */
+  --flash-success-bg: #e8f5e8;
+  --flash-success-color: #2e7d32;
+  --flash-success-border: #4caf50;
+  --flash-error-bg: #ffebee;
+  --flash-error-color: #c62828;
+  --flash-error-border: #f44336;
+  --flash-warning-bg: #fff8e1;
+  --flash-warning-color: #f57f17;
+  --flash-warning-border: #ff9800;
+  --flash-info-bg: #e3f2fd;
+  --flash-info-color: #1565c0;
+  --flash-info-border: #2196f3;
   /* Main elements */
   --bg-color: #f0f0f0;
   --main-bg-color: #ffffff;
@@ -66,19 +66,19 @@
   /* Cards (dark mode) */
   --card-bg-color: #252525;
   --card-border: none;
-  /* Flash messages (dark mode) */
-  --flash-success-bg: #1e4620;
-  --flash-success-color: #b8e6c1;
-  --flash-success-border: #2d5a31;
-  --flash-error-bg: #4a1e1e;
-  --flash-error-color: #f5c6cb;
-  --flash-error-border: #6d2c2c;
-  --flash-warning-bg: #4a3d1e;
-  --flash-warning-color: #fff3cd;
-  --flash-warning-border: #6d5a2c;
-  --flash-info-bg: #1e3a4a;
-  --flash-info-color: #bee5eb;
-  --flash-info-border: #2c5a6d;
+  /* Flash messages (dark mode) - improved colors */
+  --flash-success-bg: #2e4a2e;
+  --flash-success-color: #81c784;
+  --flash-success-border: #4caf50;
+  --flash-error-bg: #4a2e2e;
+  --flash-error-color: #ef5350;
+  --flash-error-border: #f44336;
+  --flash-warning-bg: #4a3f2e;
+  --flash-warning-color: #ffb74d;
+  --flash-warning-border: #ff9800;
+  --flash-info-bg: #2e3a4a;
+  --flash-info-color: #64b5f6;
+  --flash-info-border: #2196f3;
   /* Main elements */
   --bg-color: #1c1c1c;
   --main-bg-color: #202020;
@@ -226,16 +226,23 @@ a:hover {
   font-weight: bold;
 }
 
-/* Flash Message System */
+/* Flash Message System - improved styling and positioning */
 .flash-message {
-  padding: 12px 16px;
-  margin: 10px 0;
-  border: 1px solid;
-  border-radius: 4px;
+  padding: 14px 18px;
+  margin: 15px 0;
+  border: 2px solid;
+  border-radius: 8px;
   font-weight: 500;
+  font-size: 14px;
   position: relative;
-  transition: opacity 0.3s ease;
+  transition: all 0.3s ease;
   z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .flash-message {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .flash-success {

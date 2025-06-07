@@ -5,6 +5,7 @@ import json
 import time
 import uuid
 import logging
+import glob
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
 from connector import generate_voice
@@ -147,6 +148,71 @@ def clear_reference_audio():
     except Exception as e:
         logger.error(f"Error clearing reference audio: {str(e)}")
         return jsonify({'error': f'Failed to clear reference audio: {str(e)}'}), 500
+
+@app.route('/delete_all_audio', methods=['POST'])
+def delete_all_audio():
+    """Delete all generated audio files and clear JSON data"""
+    try:
+        json_file = os.path.join(JSON_FOLDER, 'data.json')
+        deleted_count = 0
+        failed_count = 0
+        
+        # First, get list of files from JSON if it exists
+        files_to_delete = []
+        if os.path.exists(json_file):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                files_to_delete = [item.get('outputFile', '') for item in data.values() if item.get('outputFile')]
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                logger.warning(f"Error reading JSON data: {str(e)}")
+        
+        # Also get any files that might be in the output folder but not in JSON
+        try:
+            output_files = glob.glob(os.path.join(OUTPUT_FOLDER, '*.wav'))
+            for file_path in output_files:
+                filename = os.path.basename(file_path)
+                if filename not in files_to_delete:
+                    files_to_delete.append(filename)
+        except Exception as e:
+            logger.warning(f"Error scanning output folder: {str(e)}")
+        
+        # Delete each file
+        for filename in files_to_delete:
+            if filename:  # Skip empty filenames
+                filepath = os.path.join(OUTPUT_FOLDER, filename)
+                try:
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                        deleted_count += 1
+                        logger.info(f"Deleted audio file: {filename}")
+                    else:
+                        logger.warning(f"File not found for deletion: {filename}")
+                except Exception as e:
+                    logger.error(f"Error deleting file {filename}: {str(e)}")
+                    failed_count += 1
+        
+        # Clear or remove the JSON file
+        try:
+            if os.path.exists(json_file):
+                os.remove(json_file)
+                logger.info("Cleared JSON data file")
+            else:
+                logger.info("JSON data file did not exist")
+        except Exception as e:
+            logger.error(f"Error clearing JSON data: {str(e)}")
+            failed_count += 1
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': deleted_count,
+            'failed_count': failed_count,
+            'message': f'Deleted {deleted_count} files, {failed_count} failures'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in delete_all_audio: {str(e)}")
+        return jsonify({'error': f'Failed to delete files: {str(e)}'}), 500
 
 @socketio.on('start_generation')
 def handle_start_generation(data):

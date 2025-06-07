@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function() {
   let currentUploadedFile = null;
   let isGenerating = false;
 
-  // Flash notification system
+  // Flash notification system - improved positioning and styling
   function showFlashMessage(message, type = 'success') {
     // Remove any existing flash messages
     const existingFlash = document.querySelector('.flash-message');
@@ -33,12 +33,20 @@ document.addEventListener('DOMContentLoaded', function() {
     flashMessage.className = `flash-message flash-${type}`;
     flashMessage.textContent = message;
 
-    // Insert at the top of the page
-    const wrapper = document.querySelector('.wrapper');
-    const header = wrapper.querySelector('header');
-    wrapper.insertBefore(flashMessage, header.nextSibling);
+    // Insert above the progress container instead of at the top
+    const progressContainer = document.querySelector('.progress-container');
+    const parentElement = progressContainer.parentNode;
+    parentElement.insertBefore(flashMessage, progressContainer);
 
-    // Auto-remove after 3 seconds
+    // Scroll to the flash message to ensure visibility
+    setTimeout(() => {
+      flashMessage.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center'
+      });
+    }, 100);
+
+    // Auto-remove after 4 seconds (increased from 3)
     setTimeout(() => {
       if (flashMessage.parentNode) {
         flashMessage.style.opacity = '0';
@@ -48,7 +56,7 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         }, 300);
       }
-    }, 3000);
+    }, 4000);
   }
 
   // Debounce function for preventing rapid clicks
@@ -253,7 +261,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Delete all button functionality
+  // Delete all button functionality - improved
   if (deleteAllButton) {
     deleteAllButton.addEventListener('click', function() {
       const audioCards = document.querySelectorAll('.audio-item');
@@ -317,12 +325,10 @@ document.addEventListener('DOMContentLoaded', function() {
     settingsKeys.forEach(key => localStorage.removeItem(key));
   }
 
-  // Delete all audio files function
+  // Delete all audio files function - improved with better server communication
   function deleteAllAudioFiles() {
     const audioCards = document.querySelectorAll('.audio-item');
     const totalFiles = audioCards.length;
-    let deletedCount = 0;
-    let failedCount = 0;
 
     if (totalFiles === 0) {
       showFlashMessage('No audio files to delete', 'info');
@@ -335,41 +341,54 @@ document.addEventListener('DOMContentLoaded', function() {
       deleteAllButton.textContent = 'Deleting...';
     }
 
+    // Show progress in flash message
+    showFlashMessage(`🗑️ Deleting ${totalFiles} files...`, 'info');
+
     // Clear progress complete message if it was showing
     if (progressComplete.classList.contains('hide') === false) {
       progressComplete.textContent = "";
     }
 
-    // Delete each file
-    audioCards.forEach((card, index) => {
-      const filename = card.querySelector('.filename').textContent;
+    // Fade out all cards immediately for visual feedback
+    audioCards.forEach((card) => {
+      card.style.opacity = '0.3';
+      card.style.transition = 'opacity 0.3s ease';
+    });
+
+    // Use the new server endpoint for bulk deletion
+    fetch('/delete_all_audio', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.success) {
+        completeDeleteAll(data.deleted_count, data.failed_count, totalFiles);
+      } else {
+        throw new Error(data.error || 'Delete all operation failed');
+      }
+    })
+    .catch(error => {
+      console.error('Error in delete all operation:', error);
+      showFlashMessage(`❌ Failed to delete files: ${error.message}`, 'error');
       
-      fetch('static/output/' + filename, { method: 'DELETE' })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(data => {
-          deletedCount++;
-          card.style.opacity = '0.5';
-          card.style.transition = 'opacity 0.3s ease';
-          
-          // Check if this is the last file
-          if (deletedCount + failedCount === totalFiles) {
-            completeDeleteAll(deletedCount, failedCount, totalFiles);
-          }
-        })
-        .catch(error => {
-          console.error('Error deleting file:', filename, error);
-          failedCount++;
-          
-          // Check if this is the last file
-          if (deletedCount + failedCount === totalFiles) {
-            completeDeleteAll(deletedCount, failedCount, totalFiles);
-          }
-        });
+      // Restore card opacity on error
+      audioCards.forEach((card) => {
+        card.style.opacity = '1';
+      });
+      
+      // Re-enable delete all button
+      if (deleteAllButton) {
+        deleteAllButton.disabled = false;
+        deleteAllButton.textContent = 'Delete All';
+      }
     });
   }
 
@@ -382,17 +401,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Show result message
     if (failedCount === 0) {
-      showFlashMessage(`Successfully deleted all ${deletedCount} audio files`, 'success');
+      showFlashMessage(`✅ Successfully deleted all ${deletedCount} audio files`, 'success');
     } else if (deletedCount === 0) {
-      showFlashMessage(`Failed to delete any files (${failedCount} errors)`, 'error');
+      showFlashMessage(`❌ Failed to delete any files (${failedCount} errors)`, 'error');
     } else {
-      showFlashMessage(`Deleted ${deletedCount} files, ${failedCount} failed`, 'warning');
+      showFlashMessage(`⚠️ Deleted ${deletedCount} files, ${failedCount} failed`, 'warning');
     }
 
     // Reload the audio list to reflect changes
     setTimeout(() => {
       loadAudioList();
-    }, 500);
+    }, 1000);
   }
 
   // Form submission with enhanced validation
@@ -542,7 +561,7 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         if (data.success) {
           currentUploadedFile = data.filename;
-          showFlashMessage(`Reference audio uploaded: ${audioPromptFile.name}`, 'success');
+          showFlashMessage(`📁 Reference audio uploaded: ${audioPromptFile.name}`, 'success');
           startGeneration(data.filename);
         } else {
           throw new Error(data.error || 'Upload failed');
@@ -638,18 +657,18 @@ document.addEventListener('DOMContentLoaded', function() {
     generateButton.disabled = false;
     progressContainer.classList.add('hide');
     progressComplete.textContent = "";
-    showFlashMessage(`Generation failed: ${data.error}`, 'error');
+    showFlashMessage(`❌ Generation failed: ${data.error}`, 'error');
   });
 
   socket.on('connect_error', function(error) {
     console.error('Socket connection error:', error);
-    showFlashMessage('Connection error. Please refresh the page.', 'error');
+    showFlashMessage('🔌 Connection error. Please refresh the page.', 'error');
   });
 
   socket.on('disconnect', function(reason) {
     console.log('Socket disconnected:', reason);
     if (isGenerating) {
-      showFlashMessage('Connection lost during generation. Please try again.', 'warning');
+      showFlashMessage('⚠️ Connection lost during generation. Please try again.', 'warning');
       isGenerating = false;
       generateButton.disabled = false;
       progressContainer.classList.add('hide');
@@ -708,7 +727,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateDeleteAllButton();
 
     // Fetch the JSON data
-    fetch('static/json/data.json')
+    fetch('static/json/data.json?t=' + Date.now()) // Add cache buster
       .then(response => {
         if (!response.ok) {
           throw new Error('JSON data file not found');
@@ -856,7 +875,7 @@ document.addEventListener('DOMContentLoaded', function() {
       document.body.removeChild(link);
     } catch (error) {
       console.error('Error downloading file:', error);
-      showFlashMessage('Error downloading file', 'error');
+      showFlashMessage('❌ Error downloading file', 'error');
     }
   }
 
@@ -870,7 +889,7 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .then(data => {
         console.log('File deleted:', filename);
-        showFlashMessage(`Deleted: ${filename}`, 'success');
+        showFlashMessage(`🗑️ Deleted: ${filename}`, 'success');
         
         // Remove the card from the DOM
         if (cardElement) {
@@ -882,7 +901,7 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .catch(error => {
         console.error('Error deleting file:', error);
-        showFlashMessage(`Failed to delete: ${filename}`, 'error');
+        showFlashMessage(`❌ Failed to delete: ${filename}`, 'error');
         
         // Restore card opacity on error
         if (cardElement) {

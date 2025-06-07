@@ -4,9 +4,7 @@ A Python Flask-based web interface for [Resemble AI's Chatterbox TTS](https://gi
 
 ## Key Features
 
-- **Zero-shot Voice Cloning**: Upload reference audio to clone any voice
 - **Break Tag Support**: Add custom pauses using `<break time="1.5s" />` syntax
-- **Emotion Control**: Unique exaggeration parameter for speech expressiveness
 - **Advanced Parameters**: Temperature, CFG weight, and fine-tuning options
 - **Smart Text Chunking**: Automatically handles long text within Chatterbox limits
 - **Audio Post-processing**: Speed, pitch, noise reduction, and silence removal
@@ -14,6 +12,13 @@ A Python Flask-based web interface for [Resemble AI's Chatterbox TTS](https://gi
 - **Seed Tracking**: Reproducible results with automatic seed capture
 - **Dark/Light Theme**: Persistent theme switching
 - **Enhanced Security**: Input validation and secure file handling
+
+Built on [Resemble AI's Chatterbox](https://github.com/resemble-ai/chatterbox):
+- **Zero-shot voice cloning** from short samples
+- **Emotion exaggeration control** (first open-source TTS with this feature)
+- **0.5B Llama backbone** with ultra-stable generation
+- **Trained on 0.5M hours** of speech data
+- **Built-in Perth watermarking** for responsible AI use
 
 ![Screenshot](screenshot.png)
 
@@ -26,11 +31,6 @@ https://github.com/user-attachments/assets/9a4c0ea3-98b5-48f7-a377-2af7bed90b5e
 https://github.com/user-attachments/assets/a264abc0-e6f2-4dc5-b7a0-638c36f0fcee
 
 ## Quick Start
-
-### Prerequisites
-- Python 3.10+ (3.12 recommended)
-- 4GB+ RAM (8GB+ recommended)
-- CUDA GPU (optional, for faster generation)
 
 ### Installation
 
@@ -92,14 +92,14 @@ Open your browser to `http://127.0.0.1:5000`
 ## Usage Guide
 
 ### Basic Text-to-Speech
-1. Enter text (max 10,000 characters by default)
+1. Enter text
 2. Adjust parameters as needed
 3. Click "Generate"
 4. Download or manage files from the audio list
 
 ### Voice Cloning
 1. Upload reference audio (WAV, MP3, FLAC, OPUS - max 50MB)
-2. Use 3-10 seconds of clear, single-speaker audio
+2. Use 10 or more seconds of clear, single-speaker audio
 3. Generated speech will mimic the uploaded voice
 
 ### Break Tags for Custom Pauses
@@ -126,27 +126,6 @@ End of paragraph. <break time="1.5s" /> New paragraph starts.
 | **CFG Weight** | 0.0-1.0 | 0.5 | Pacing control (lower = faster speech) |
 | **Chunk Size** | 50-300 | 130 | Text processing size (larger = smoother flow) |
 
-### Seed Tracking for Reproducible Results
-- **Random generations show**: "Seed: Random (used: 847293)"
-- **Copy the number** to reproduce exact results
-- **Use Custom Seed** for consistent outputs across parameter changes
-
-### Performance Tips
-
-**For Speed:**
-- Use NVIDIA GPU with CUDA
-- Increase chunk size to 250-300
-- Lower temperature (0.5-0.7)
-
-**For Quality:**
-- Smaller chunk sizes (100-150) for complex text
-- Higher quality reference audio (16kHz+, mono)
-
-**For Expressive Speech:**
-- Higher exaggeration (0.7+) with lower CFG weight (~0.3)
-
-## Configuration
-
 ### Text Length Limits
 Set via environment variable:
 ```bash
@@ -169,28 +148,6 @@ MAX_TEXT_LENGTH=10000    # Text input limit
 SECRET_KEY=your_key      # Flask secret (auto-generated)
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-**Model Loading:**
-```bash
-# Verify PyTorch
-python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
-```
-
-**Audio Generation Errors:**
-- Check text length limit
-- Verify reference audio format/size
-- Try smaller chunk size for complex text
-
-**Memory Issues:**
-- Reduce chunk size to 100-150
-
-**Performance:**
-- GPU: Use CUDA for speed
-- CPU: Increase chunk size, disable post-processing
-
 ## File Structure
 ```
 chatterboxwebui/
@@ -206,15 +163,6 @@ chatterboxwebui/
 │   ├── uploads/          # Reference audio (auto-created)
 │   └── json/data.json    # Generation history (auto-created)
 ```
-
-## About Chatterbox TTS
-
-Built on [Resemble AI's Chatterbox](https://github.com/resemble-ai/chatterbox):
-- **Zero-shot voice cloning** from short samples
-- **Emotion exaggeration control** (first open-source TTS with this feature)
-- **0.5B Llama backbone** with ultra-stable generation
-- **Trained on 0.5M hours** of speech data
-- **Built-in Perth watermarking** for responsible AI use
 
 ## API Usage
 
