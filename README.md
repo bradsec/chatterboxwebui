@@ -22,6 +22,13 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 # Install Chatterbox
 pip install chatterbox-tts
 
+# Install Whisper / Faster Whisper
+pip install openai-whisper
+pip install faster-whisper
+
+# Install Python FFMPEG wrapper
+pip install ffmpeg-python
+
 # Clone and setup
 git clone https://github.com/your-username/chatterboxwebui.git
 cd chatterboxwebui
