@@ -96,13 +96,6 @@ export PORT=8080               # Change port
 python server.py
 ```
 
-## 💡 Tips
-
-- **Voice Quality**: Use clear, single-speaker audio (10+ seconds)
-- **Long Text**: Break up very long texts for better results
-- **Performance**: Use GPU for faster generation
-- **Break Tags**: Place between sentences/paragraphs for natural pauses
-
 ## 🛠️ Troubleshooting
 
 ### Common Issues
@@ -131,7 +124,6 @@ python -c "import nltk; nltk.download('punkt_tab')"
 
 - Python 3.10+
 - FFMPEG for post audio functions (installed and in system PATH)
-- Optional: CUDA-compatible GPU for faster generation
 
 ## 🏗️ Built With
 
