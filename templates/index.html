@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Chatterbox TTS Web UI" />
+    <meta name="author" content="BRADSEC" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#202020" />
+    <meta name="max-text-length" content="{{ max_text_length }}" />
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+    <title>Chatterbox Web UI</title>
+  </head>
+  <body data-max-text-length="{{ max_text_length }}">
+    <!-- Skip to main content for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <div class="wrapper">
+      <header>
+      <div class="branding"><a href="https://github.com/bradsec/chatterboxwebui">ChatterboxWebUI</a></div>
+      <button id="theme-switcher" aria-label="Toggle dark mode" title="Switch between light and dark themes">
+        <svg id="sun-icon" class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+          <circle class="sun" cx="12" cy="12" r="6" fill="currentColor" />
+          <g class="sun-beams" stroke="currentColor">
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </g>
+        </svg>
+        
+        <svg id="moon-icon" class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+          <mask id="moon-mask" class="moon">
+            <rect x="0" y="0" width="100%" height="100%" fill="currentColor" />
+            <circle cx="12" cy="10" r="6" fill="white" />
+          </mask>
+          <circle class="moon" cx="12" cy="12" r="6" fill="currentColor" />
+        </svg>  
+      </button>
+    </header>
+      <main id="main-content" role="main">
+        <form id="generator-form" aria-label="Audio generation settings">
+          <!-- Help Section -->
+          <div class="help-section">
+            <label for="help-dropdown" class="sr-only">Help topics</label>
+            <div class="select-container">
+              <select id="help-dropdown" aria-label="Select help topic">
+                <option value="">Select an option for help...</option>
+                <option value="break-tags">Break Tags for Custom Pauses</option>
+                <option value="reference-audio">Voice Selection & Reference Audio</option>
+                <option value="text-files">Text Files</option>
+                <option value="exaggeration">Exaggeration</option>
+                <option value="temperature">Temperature</option>
+                <option value="cfg-weight">CFG Weight / Pace Control</option>
+                <option value="chunk-size">Chunk Size</option>
+                <option value="seed">Random Seed</option>
+                <option value="speed-pitch">Speed and Pitch Adjustment</option>
+                <option value="export-format">Export Format</option>
+                <option value="whisper">Whisper Settings</option>
+                <option value="parallel">Generation Quality</option>
+                <option value="text-processing">Text Processing Options</option>
+                <option value="noise-reduction">Noise Reduction</option>
+                <option value="normalization">Audio Normalization</option>
+                <option value="voice-similarity">Voice Similarity Validation</option>
+                <option value="sound-words">Sound Words</option>
+              </select>
+            </div>
+            <div id="help-content" class="help-content hide" role="region" aria-live="polite" aria-label="Help content">
+              <!-- Help content will be populated by JavaScript -->
+            </div>
+          </div>
+          
+          <!-- Input & Content Section -->
+          <div class="ffmpeg-section">
+            <h3 class="section-heading">📝 Input & Content</h3>
+            
+            <label for="text-input" class="sr-only">Text to convert to speech</label>
+            <textarea name="text-input" id="text-input" rows="10" cols="50" 
+                      placeholder="Enter your text here (max {{ max_text_length|format_number }} characters)...&#10;&#10;Use break tags for custom pauses:&#10;• <break time=&quot;1.5s&quot; /> for 1.5 second pause&#10;• <break time=&quot;500ms&quot; /> for 500 millisecond pause&#10;• Place breaks between sentences or paragraphs for best results"
+                      aria-label="Text to convert to speech"
+                      aria-describedby="text-input-hint"></textarea>
+            <div id="text-input-hint" class="sr-only">Enter the text you want to convert to speech. Maximum {{ max_text_length|format_number }} characters.</div>
+            
+            <div class="file-upload-container">
+              <label for="text-files" class="file-upload-label">
+                <span class="file-upload-text">Choose Text Files (Optional)</span>
+                <input type="file" id="text-files" name="text-files" accept=".txt" multiple />
+              </label>
+              <span class="file-name" id="text-files-display">No files selected</span>
+              <button type="button" id="clear-text-files-button" class="clear-audio-button hide">Clear Files</button>
+            </div>
+
+            <!-- Voice Selection -->
+            <div class="voice-selection-container">
+              <label for="voice-select">Select Voice:</label>
+              <div class="select-container">
+                <select id="voice-select" class="form-control">
+                  <option value="">Select a voice...</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Upload Custom Voice -->
+            <div class="file-upload-container">
+              <label for="audio-prompt" class="file-upload-label">
+                <span class="file-upload-text">Upload Custom Reference Audio</span>
+                <input type="file" id="audio-prompt" name="audio-prompt" accept=".wav,.mp3,.flac,.opus,.m4a,.ogg,audio/*" />
+              </label>
+              <span class="file-name" id="file-name-display">No file selected</span>
+              <button type="button" id="clear-audio-button" class="clear-audio-button hide">Clear Audio</button>
+            </div>
+            
+            <!-- Multi-Voice Information -->
+            <div class="multivoice-info">
+              <h3 class="section-heading">🎭 Multi-Voice Support</h3>
+              <p class="help-text">Use <code>[Character Name]</code> markers in your text for automatic multi-voice generation. Characters will be automatically matched to voices in the static/voices directory.</p>
+              <p class="help-text"><strong>Example:</strong> <code>[Liam] Hello there! [Sara] Nice to meet you!</code></p>
+              <p class="help-text"><strong>Character-Specific Settings:</strong> Use <code>[Character]{exaggeration,cfg_weight}</code> to set character-specific voice parameters.</p>
+              <p class="help-text"><strong>Example:</strong> <code>[Liam]{0.8,0.3} I'm excited!</code> sets Liam's exaggeration to 0.8 and CFG weight to 0.3</p>
+            </div>
+          </div>
+
+          <!-- Core Voice Settings Section -->
+          <div class="ffmpeg-section">
+            <h3 class="section-heading">🎙️ Chatterbox TTS Core Settings</h3>
+            
+            <div class="slider-group">
+              <div class="slider-container">
+                <label for="exaggeration">Exaggeration (default 0.5): <span id="exaggeration-value">0.50</span></label>
+                <input type="range" id="exaggeration" name="exaggeration" min="0.25" max="2.00" step="0.05" value="0.50" class="styled-slider">
+              </div>
+              <div class="slider-container">
+                <label for="temperature">Temperature (default 0.8): <span id="temperature-value">0.80</span></label>
+                <input type="range" id="temperature" name="temperature" min="0.05" max="5.00" step="0.05" value="0.30" class="styled-slider">
+              </div>
+            </div>
+            
+            <div class="slider-group">
+              <div class="slider-container">
+                <label for="cfg-weight">CFG Weight / Pace (default 0.5): <span id="cfg-weight-value">0.50</span></label>
+                <input type="range" id="cfg-weight" name="cfg-weight" min="0.00" max="1.00" step="0.05" value="0.50" class="styled-slider">
+              </div>
+              <div class="slider-container">
+                <label for="chunk-size">Chunk Size (default 300): <span id="chunk-size-value">300</span> characters</label>
+                <input type="range" id="chunk-size" name="chunk-size" min="50" max="300" step="10" value="300" class="styled-slider">
+              </div>
+            </div>
+
+            <label for="seed" class="sr-only">Random seed selection</label>
+            <div class="select-container">
+              <select name="seed" id="seed" aria-label="Select random seed for generation">
+                <option value="0" selected>Random Seed</option>
+                <option value="1">Seed 1</option>
+                <option value="42">Seed 42</option>
+                <option value="123">Seed 123</option>
+                <option value="777">Seed 777</option>
+                <option value="1234">Seed 1234</option>
+                <option value="9999">Seed 9999</option>
+                <option value="custom">Custom Seed...</option>
+              </select>
+            </div>
+            <div id="custom-seed-container" class="hide">
+              <label for="custom-seed-input" class="sr-only">Custom seed value</label>
+              <input type="number" id="custom-seed-input" 
+                     placeholder="Enter custom seed (0-999999)" 
+                     min="0" max="999999" 
+                     aria-label="Custom seed value between 0 and 999999" />
+            </div>
+          </div>
+
+          <!-- Audio Output Section -->
+          <div class="ffmpeg-section">
+            <h3 class="section-heading">🔊 Audio Output</h3>
+            
+            <div class="slider-group">
+              <div class="slider-container">
+                <label for="speed">Voice Speed (default 1.00): <span id="speed-value">1.00</span></label>
+                <input type="range" id="speed" name="speed" min="0.1" max="2.00" step="0.05" value="1.00" class="styled-slider">
+              </div>
+              <div class="slider-container">
+                <label for="pitch">Voice Pitch (default 0): <span id="pitch-value">0</span></label>
+                <input type="range" id="pitch" name="pitch" min="-12" max="12" step="1" value="0" class="styled-slider">
+              </div>
+            </div>
+
+            <!-- Export Format -->
+            <div class="toggle-group">
+              <div class="toggle-item">
+                <label for="export-wav-radio">Export as WAV
+                  <div class="switch">
+                    <input type="radio" id="export-wav-radio" name="export-format" value="wav" checked>
+                    <span class="slider round"></span>
+                  </div>
+                </label>
+              </div>
+              <div class="toggle-item">
+                <label for="export-mp3-radio">Export as MP3
+                  <div class="switch">
+                    <input type="radio" id="export-mp3-radio" name="export-format" value="mp3">
+                    <span class="slider round"></span>
+                  </div>
+                </label>
+              </div>
+              <div class="toggle-item">
+                <label for="export-flac-radio">Export as FLAC
+                  <div class="switch">
+                    <input type="radio" id="export-flac-radio" name="export-format" value="flac">
+                    <span class="slider round"></span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Generation Quality & Performance Section -->
+          <div class="ffmpeg-section">
+            <h3 class="section-heading">⚙️ Generation Quality</h3>
+            
+            <div class="slider-container">
+              <label for="voice-similarity-threshold">Voice Similarity Threshold (default 0.5, 0.0 = disabled): <span id="voice-similarity-threshold-value">0.5</span></label>
+              <input type="range" id="voice-similarity-threshold" name="voice-similarity-threshold" min="0.0" max="0.9" step="0.05" value="0.5" class="styled-slider">
+            </div>
+
+            <p class="help-text">Each candidates is given a voice similarity score (when voices or reference audio is used) and a Whisper score (when enabled). The top scoring candidate is then selected and used in the generation.</p>
+
+            <div class="slider-group">
+              <div class="slider-container">
+                <label for="num-candidates">Candidates Per Chunk (default 3): <span id="num-candidates-value">3</span></label>
+                <input type="range" id="num-candidates" name="num-candidates" min="1" max="10" step="1" value="3" class="styled-slider">
+              </div>
+              <div class="slider-container">
+                <label for="max-attempts">Max Attempts Per Candidate (default 3): <span id="max-attempts-value">3</span></label>
+                <input type="range" id="max-attempts" name="max-attempts" min="1" max="10" step="1" value="3" class="styled-slider">
+              </div>
+            </div>
+         </div>
+
+          <!-- Whisper Settings Section -->
+          <div class="ffmpeg-section">
+            <h3 class="section-heading">🗣️ Whisper Settings</h3>
+            
+            <div class="select-container">
+              <select name="whisper-model" id="whisper-model">
+                <option value="tiny">Whisper Tiny (~1 GB VRAM OpenAI / ~0.5 GB faster-whisper)</option>
+                <option value="base">Whisper Base (~1.2–2 GB OpenAI / ~0.7–1 GB faster-whisper)</option>
+                <option value="small">Whisper Small (~2–3 GB OpenAI / ~1.2–1.7 GB faster-whisper)</option>
+                <option value="medium" selected>Whisper Medium (~5–8 GB OpenAI / ~2.5–4.5 GB faster-whisper)</option>
+                <option value="large">Whisper Large (~10–13 GB OpenAI / ~4.5–6.5 GB faster-whisper)</option>
+              </select>
+            </div>
+
+            <div class="toggle-group">
+              <div class="toggle-item">
+                  <label for="bypass-whisper">Bypass Whisper Checking
+                      <div class="switch">
+                          <input type="checkbox" id="bypass-whisper" name="bypass-whisper" checked>
+                          <span class="slider round"></span>
+                      </div>
+                  </label>
+              </div>
+              <div class="toggle-item">
+                  <label for="use-faster-whisper">Use faster-whisper
+                      <div class="switch">
+                          <input type="checkbox" id="use-faster-whisper" name="use-faster-whisper" checked>
+                          <span class="slider round"></span>
+                      </div>
+                  </label>
+              </div>
+              <div class="toggle-item">
+                  <label for="use-longest-transcript">Use Longest Transcript on Fail
+                      <div class="switch">
+                          <input type="checkbox" id="use-longest-transcript" name="use-longest-transcript" checked>
+                          <span class="slider round"></span>
+                      </div>
+                  </label>
+              </div>
+            </div>
+
+            <div class="slider-container">
+              <label for="validation-threshold">Whisper Validation Threshold (default 0.85): <span id="validation-threshold-value">0.85</span></label>
+              <input type="range" id="validation-threshold" name="validation-threshold" min="0.5" max="1.0" step="0.05" value="0.85" class="styled-slider">
+            </div>
+            <!-- Parallel Processing -->
+            <p class="help-text">The parallel processing options below only provide a performance benefit for Whisper.</p>
+            <div class="toggle-group">
+              <div class="toggle-item">
+                  <label for="enable-parallel">Enable Parallel Processing
+                      <div class="switch">
+                          <input type="checkbox" id="enable-parallel" name="enable-parallel">
+                          <span class="slider round"></span>
+                      </div>
+                  </label>
+              </div>
+            </div>
+
+            <div class="slider-container">
+              <label for="parallel-workers">Parallel Workers (default 3): <span id="parallel-workers-value">3</span></label>
+              <input type="range" id="parallel-workers" name="parallel-workers" min="1" max="8" step="1" value="3" class="styled-slider">
+            </div>
+          </div>
+
+
+          <!-- Text Processing Section -->
+          <div class="ffmpeg-section">
+            <h3 class="section-heading">📝 Text Processing</h3>
+            
+            <div class="toggle-group">
+              <div class="toggle-item">
+                  <label for="to-lowercase">Convert to Lowercase
+                      <div class="switch">
+                          <input type="checkbox" id="to-lowercase" name="to-lowercase">
+                          <span class="slider round"></span>
+                      </div>
+                  </label>
+              </div>
+              <div class="toggle-item">
+                  <label for="normalize-spacing">Normalize Spacing
+                      <div class="switch">
+                          <input type="checkbox" id="normalize-spacing" name="normalize-spacing">
+                          <span class="slider round"></span>
+                      </div>
+                  </label>
+              </div>
+              <div class="toggle-item">
+                  <label for="fix-dot-letters">Fix Dot Letters (A.I. → A I)
+                      <div class="switch">
+                          <input type="checkbox" id="fix-dot-letters" name="fix-dot-letters">
+                          <span class="slider round"></span>
+                      </div>
+                  </label>
+              </div>
+              <div class="toggle-item">
+                  <label for="remove-reference-numbers">Remove Reference Numbers
+                      <div class="switch">
+                          <input type="checkbox" id="remove-reference-numbers" name="remove-reference-numbers">
+                          <span class="slider round"></span>
+                      </div>
+                  </label>
+              </div>
+              <div class="toggle-item">
+                  <label for="remove-silence">Remove Silence
+                      <div class="switch">
+                          <input type="checkbox" id="remove-silence" name="remove-silence">
+                          <span class="slider round"></span>
+                      </div>
+                  </label>
+              </div>
+            </div>
+
+            <!-- Sound Words Field -->
+            <textarea name="sound-words" id="sound-words" rows="6" cols="50"
+  placeholder="Remove or Replace words/sounds (use a newline for each change)&#10;- Replacement: old=&gt;new (replaces &quot;old&quot; with &quot;new&quot;)&#10;- Removal: word (removes &quot;word&quot; completely)&#10;Example Usage:&#10;hello=&gt;hi (Replace &quot;hello&quot; with &quot;hi&quot;)&#10;world (Remove &quot;world&quot; completely)">
+</textarea>
+
+          </div>
+
+          <!-- FFmpeg Audio Processing (Requires FFmpeg Installation) -->
+          <div class="ffmpeg-section">
+            <h3 class="section-heading">🎛️ FFmpeg Audio Processing</h3>
+            <p class="section-note">The following features require FFmpeg to be installed</p>
+            
+            <div class="toggle-group">
+              <div class="toggle-item">
+                  <label for="reduce-noise">Reduce Noise (Speech Optimized)
+                      <div class="switch">
+                          <input type="checkbox" id="reduce-noise" name="reduce-noise">
+                          <span class="slider round"></span>
+                      </div>
+                  </label>
+              </div>
+            </div>
+
+            <div class="slider-container">
+              <label for="noise-strength">Noise Reduction Strength (default 0.85): <span id="noise-strength-value">0.85</span></label>
+              <input type="range" id="noise-strength" name="noise-strength" min="0.1" max="1.0" step="0.05" value="0.85" class="styled-slider">
+            </div>
+
+
+            <div class="toggle-group">
+              <div class="toggle-item">
+                  <label for="normalize-audio">Normalize Audio
+                      <div class="switch">
+                          <input type="checkbox" id="normalize-audio" name="normalize-audio">
+                          <span class="slider round"></span>
+                      </div>
+                  </label>
+              </div>
+            </div>
+
+            <div class="select-container">
+              <select name="normalize-method" id="normalize-method">
+                <option value="ebu" selected>EBU Loudness Normalization</option>
+                <option value="peak">Peak Normalization</option>
+              </select>
+            </div>
+
+            <div class="slider-container">
+              <label for="normalize-level">EBU Target Loudness dB (default -24): <span id="normalize-level-value">-24</span></label>
+              <input type="range" id="normalize-level" name="normalize-level" min="-70" max="-5" step="1" value="-24" class="styled-slider">
+            </div>
+
+            <div class="slider-container">
+              <label for="normalize-tp">EBU True Peak dB (default -2): <span id="normalize-tp-value">-2</span></label>
+              <input type="range" id="normalize-tp" name="normalize-tp" min="-9" max="0" step="1" value="-2" class="styled-slider">
+            </div>
+
+            <div class="slider-container">
+              <label for="normalize-lra">EBU Loudness Range (default 7): <span id="normalize-lra-value">7</span></label>
+              <input type="range" id="normalize-lra" name="normalize-lra" min="1" max="50" step="1" value="7" class="styled-slider">
+            </div>
+          </div>
+
+          
+          
+          <div class="button-group">
+            <button id="generate-button" type="submit" aria-describedby="generate-button-hint">
+              <span>Generate Audio</span>
+            </button>
+            <div id="generate-button-hint" class="sr-only">Generate speech audio from your text and settings</div>
+            <button id="cancel-button" type="button" class="cancel-button hide" aria-label="Cancel audio generation in progress">
+              <span>Cancel Generation</span>
+            </button>
+            <button id="reset-button" type="button" aria-label="Reset all settings to default values">
+              <span>Reset to Defaults</span>
+            </button>
+          </div>
+        </form>
+        
+        <div class="progress-container">
+          <div class="status-console-container">
+              <div class="console-header">
+                  <span class="console-title">🎙️ Status Console</span>
+                  <div class="console-buttons">
+                    <button id="clear-console-button" class="clear-console-button" 
+                            aria-label="Clear console messages" 
+                            title="Clear all status messages">✕</button>
+                  </div>
+              </div>
+              <div id="status-console" class="status-console" 
+                   role="log" 
+                   aria-live="polite" 
+                   aria-label="Generation status messages">
+                  <!-- Status messages will be added here dynamically -->
+              </div>
+          </div>              
+      </div>
+      <div id="progress-complete" class="progress-complete hide"></div>    
+      
+      <!-- Delete All Button Section -->
+      <div class="audio-controls">
+        <button id="delete-all-button" type="button" class="delete-all-button" 
+                style="display: none;" 
+                aria-label="Delete all generated audio files">
+          Delete All Audio Files
+        </button>
+      </div>
+      
+          <section id="audio-list" class="card-deck" role="region" aria-label="Generated audio files" aria-live="polite"></section>
+          <template id="audio-item-template">
+            <article class="card audio-item">
+                <div class="card-content">
+                            <audio class="audio-player" controls></audio>
+                            <p class="filename"></p>
+                            <p class="gen-time"></p>
+                            <p class="audio-prompt"></p>
+                            <p class="exaggeration"></p>
+                            <p class="temperature"></p>
+                            <p class="cfg-weight"></p>
+                            <p class="chunk-size"></p>
+                            <p class="speed"></p>
+                            <p class="pitch"></p>
+                            <p class="seed"></p>
+                            <p class="reduce-noise"></p>
+                            <p class="normalize-audio"></p>
+                            <p class="num-candidates"></p>
+                            <p class="use-whisper"></p>
+                            <p class="validation-threshold"></p>
+                            <p class="whisper-model"></p>
+                            <p class="enable-parallel"></p>
+                            <p class="num-workers"></p>
+                            <textarea rows="5" readonly class="text-input"></textarea>
+                </div>
+                <div class="button-section">
+                    <button class="download-button">Download</button>
+                    <button class="delete-button">Delete</button>
+                </div>
+            </article>
+        </template>
+                       
+  </main>
+    <footer>
+      <p><a href="https://github.com/bradsec/chatterboxwebui">Chatterbox Web UI</a></p>
+    </footer>
+  </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.js"></script>
+    <!-- Load utility modules first -->
+    <script defer src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <!-- Load existing modules -->
+    <script defer src="{{ url_for('static', filename='js/dom-utils.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/form-validation.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/websocket-handlers.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/audio-player.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/theme.js') }}"></script>
+  </body>
+</html>

@@ -1,0 +1,44 @@
+# Web Framework
+flask==3.1.1
+flask-socketio==5.5.1
+werkzeug==3.1.3
+
+# TTS Core (Manual installation required)
+# chatterbox-tts  # Install separately: pip install chatterbox-tts
+
+# Audio Processing
+librosa==0.10.0
+noisereduce==3.0.3
+soundfile==0.13.1
+webrtcvad==2.0.10
+resampy>=0.4.3
+torchaudio>=2.0.0
+
+# Text Processing
+nltk==3.9.1
+
+# Scientific Computing
+numpy==1.26.0
+scipy==1.15.3
+
+# ML/AI Dependencies
+torch>=2.0.0
+transformers>=4.21.0
+accelerate>=0.20.0
+peft==0.15.2
+safetensors>=0.5.3
+huggingface-hub>=0.32.0
+
+# Whisper (Optional - Manual installation)
+# openai-whisper  # Install separately for voice validation
+# faster-whisper  # Install separately for better performance
+
+# Audio/Video Processing (Optional)
+# ffmpeg-python  # Install separately for advanced audio processing
+
+# Performance and Async
+eventlet>=0.33.3
+gunicorn>=21.0.0  # For production deployment
+
+# Development and Security
+python-dotenv>=1.0.0  # For environment variable management
