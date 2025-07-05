@@ -6,9 +6,21 @@ A professional web interface for [Chatterbox TTS](https://github.com/resemble-ai
 
 ### Sample Default Model Audio
 
+
+https://github.com/user-attachments/assets/32035f18-6a39-4e12-ab5b-8a5b07dd1c27
+
+
 ### Sample Custom Voice Audio
 
+
+https://github.com/user-attachments/assets/01650734-8294-4d4d-91b3-b028ecb69e68
+
+
 ### Sample Multiple Voice Audio
+
+
+https://github.com/user-attachments/assets/ca07c6a5-6319-4ae9-87cc-84a3d23e05a7
+
 
 ## ✨ Key Features
 
